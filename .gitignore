@@ -1,0 +1,40 @@
+# Build artefacts
+build/
+dist/
+out/
+*.elf
+*.bin
+*.hex
+*.map
+
+# ESP-IDF
+managed_components/
+sdkconfig.old
+dependencies.lock
+
+# Audio working files (samples are licence-restricted, kept out of repo)
+samples/raw/
+samples/processed/
+*.wav
+*.flac
+*.aiff
+*.mp3
+!samples/sample-manifest.example.wav
+
+# Python (if used for analysis later)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Local config
+.env
+*.local

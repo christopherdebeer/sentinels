@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinels — a small device that watches the soundscape</title>
+<meta name="description" content="A wearable that emits calibrated ambient-safety signals — exploring whether birdsong-band soundscapes can quiet the brainstem's hypervigilance circuit in urban environments.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,200..900,0..100;1,9..144,200..900,0..100&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f5f0e6;
+    --paper-deep: #ede5d4;
+    --ink: #1a1612;
+    --ink-soft: #3d362e;
+    --ink-faint: #6b5f51;
+    --moss: #5a6b4a;
+    --moss-deep: #404e35;
+    --moss-pale: #b8c2a8;
+    --rust: #a85a3a;
+    --rule: rgba(26, 22, 18, 0.12);
+    --measure: 62ch;
+    --serif: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    background-image:
+      radial-gradient(ellipse 1200px 600px at 80% -10%, rgba(184, 194, 168, 0.18), transparent 60%),
+      radial-gradient(ellipse 800px 600px at -10% 80%, rgba(168, 90, 58, 0.06), transparent 60%);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-feature-settings: "ss01", "ss02";
+    font-variation-settings: "opsz" 14, "SOFT" 30, "wght" 400;
+    font-size: clamp(16px, 1vw + 12px, 19px);
+    line-height: 1.55;
+    overflow-x: hidden;
+  }
+
+  /* Subtle paper grain via SVG noise */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.4;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 0 0.07 0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  main {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ───────── Breathing circuit indicator ───────── */
+  .circuit {
+    position: fixed;
+    top: 28px;
+    right: 32px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    cursor: default;
+  }
+
+  .circuit-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--moss);
+    box-shadow: 0 0 0 0 rgba(90, 107, 74, 0.6);
+    animation: breathe 5.5s cubic-bezier(.4,0,.6,1) infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(90, 107, 74, 0.5); transform: scale(1); }
+    50%      { box-shadow: 0 0 0 7px rgba(90, 107, 74, 0); transform: scale(1.15); }
+  }
+
+  .circuit-label {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .circuit:hover .circuit-label { opacity: 1; }
+
+  /* ───────── Layout scaffold ───────── */
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 max(24px, 4vw);
+  }
+
+  /* Editorial spine */
+  .spine {
+    position: absolute;
+    top: 240px;
+    bottom: 320px;
+    left: max(48px, 12vw);
+    width: 1px;
+    background: var(--rule);
+    z-index: 0;
+    display: none;
+  }
+  @media (min-width: 900px) {
+    .spine { display: block; }
+  }
+
+  /* ───────── Hero ───────── */
+  .hero {
+    position: relative;
+    padding: clamp(80px, 18vh, 200px) 0 clamp(100px, 18vh, 180px);
+    min-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 clamp(40px, 6vh, 70px);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    opacity: 0;
+    animation: fadeIn 1s 0.2s ease-out forwards;
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 32px;
+    height: 1px;
+    background: var(--ink-faint);
+  }
+
+  .title {
+    font-size: clamp(64px, 14vw, 200px);
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    font-variation-settings: "opsz" 144, "SOFT" 50, "wght" 360;
+    margin: 0 0 clamp(28px, 4vh, 48px);
+    color: var(--ink);
+    transition: font-variation-settings 1.2s cubic-bezier(.2,.7,.3,1);
+    cursor: default;
+    opacity: 0;
+    animation: titleRise 1.4s 0.4s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  .title:hover {
+    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 380;
+  }
+
+  .title em {
+    font-style: italic;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "wght" 340;
+    color: var(--moss-deep);
+  }
+
+  @keyframes titleRise {
+    0%   { opacity: 0; transform: translateY(28px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+
+  .lede {
+    font-size: clamp(20px, 2.2vw, 28px);
+    line-height: 1.4;
+    max-width: 28ch;
+    color: var(--ink-soft);
+    font-variation-settings: "opsz" 36, "SOFT" 50, "wght" 380;
+    margin: 0 0 clamp(40px, 6vh, 70px);
+    opacity: 0;
+    animation: fadeIn 1.4s 0.9s ease-out forwards;
+  }
+
+  .lede em {
+    font-style: italic;
+    color: var(--moss-deep);
+    font-variation-settings: "opsz" 36, "SOFT" 100, "wght" 360;
+  }
+
+  /* Decorative spectrum in hero */
+  .spectrum {
+    position: absolute;
+    right: max(24px, 4vw);
+    bottom: clamp(40px, 8vh, 90px);
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 60px;
+    opacity: 0.5;
+  }
+  .spectrum span {
+    display: block;
+    width: 3px;
+    background: var(--moss);
+    border-radius: 1px;
+    transform-origin: bottom;
+    animation: barIdle 4s ease-in-out infinite;
+  }
+  .spectrum.active span { animation: barActive 0.8s ease-in-out infinite; }
+  .spectrum span:nth-child(1) { height: 10%; animation-delay: 0s; }
+  .spectrum span:nth-child(2) { height: 30%; animation-delay: 0.1s; }
+  .spectrum span:nth-child(3) { height: 60%; animation-delay: 0.2s; }
+  .spectrum span:nth-child(4) { height: 80%; animation-delay: 0.3s; }
+  .spectrum span:nth-child(5) { height: 100%; animation-delay: 0.4s; }
+  .spectrum span:nth-child(6) { height: 70%; animation-delay: 0.5s; }
+  .spectrum span:nth-child(7) { height: 50%; animation-delay: 0.6s; }
+  .spectrum span:nth-child(8) { height: 30%; animation-delay: 0.7s; }
+  .spectrum span:nth-child(9) { height: 15%; animation-delay: 0.8s; }
+
+  @keyframes barIdle {
+    0%, 100% { transform: scaleY(1); opacity: 0.6; }
+    50%      { transform: scaleY(0.7); opacity: 0.8; }
+  }
+  @keyframes barActive {
+    0%, 100% { transform: scaleY(0.4); opacity: 0.7; }
+    50%      { transform: scaleY(1.3); opacity: 1; }
+  }
+
+  /* ───────── Section structure ───────── */
+  section {
+    position: relative;
+    padding: clamp(60px, 10vh, 120px) 0;
+  }
+
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--moss);
+    margin: 0 0 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .section-num::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 1px;
+    background: var(--moss);
+    transform: translateY(-3px);
+  }
+
+  h2 {
+    font-size: clamp(36px, 6vw, 72px);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    font-variation-settings: "opsz" 100, "SOFT" 40, "wght" 420;
+    margin: 0 0 clamp(32px, 5vh, 56px);
+    max-width: 14ch;
+  }
+  h2 em {
+    font-style: italic;
+    color: var(--moss-deep);
+    font-variation-settings: "opsz" 100, "SOFT" 100, "wght" 380;
+  }
+
+  .prose {
+    max-width: var(--measure);
+    font-size: clamp(17px, 1.1vw + 11px, 20px);
+    line-height: 1.65;
+    color: var(--ink-soft);
+    font-variation-settings: "opsz" 14, "SOFT" 50, "wght" 380;
+  }
+  .prose p { margin: 0 0 1.2em; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose em {
+    font-style: italic;
+    color: var(--ink);
+    font-variation-settings: "opsz" 14, "SOFT" 100, "wght" 380;
+  }
+  .prose strong {
+    font-weight: 520;
+    color: var(--ink);
+    font-variation-settings: "opsz" 14, "SOFT" 30, "wght" 520;
+  }
+
+  /* Ornament between sections */
+  .ornament {
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 14px;
+    letter-spacing: 0.4em;
+    margin: 0;
+    padding: clamp(20px, 4vh, 40px) 0;
+    opacity: 0.5;
+    user-select: none;
+  }
+
+  /* ───────── Listen module ───────── */
+  .listen {
+    background:
+      linear-gradient(180deg, rgba(90,107,74,0.04) 0%, rgba(90,107,74,0.08) 100%);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: clamp(32px, 5vw, 56px);
+    max-width: 640px;
+    margin-top: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .listen-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+
+  .listen-title {
+    font-size: clamp(22px, 2.4vw, 30px);
+    font-variation-settings: "opsz" 36, "SOFT" 60, "wght" 420;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .listen-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  .listen-meta span { color: var(--moss-deep); }
+
+  .listen-button {
+    appearance: none;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 14px 24px;
+    font-family: var(--serif);
+    font-size: 16px;
+    font-variation-settings: "opsz" 14, "SOFT" 60, "wght" 440;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border-radius: 1px;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.4s ease, transform 0.2s ease;
+  }
+  .listen-button:hover {
+    background: var(--moss-deep);
+    transform: translateY(-1px);
+  }
+  .listen-button:disabled {
+    background: var(--ink-faint);
+    cursor: progress;
+    transform: none;
+  }
+  .listen-button .icon {
+    width: 14px;
+    height: 14px;
+    display: inline-block;
+    border-radius: 50%;
+    background: var(--moss-pale);
+    transition: background 0.3s ease;
+  }
+  .listen-button.playing .icon {
+    background: var(--rust);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1);   opacity: 1; }
+    50%      { transform: scale(1.4); opacity: 0.5; }
+  }
+
+  .listen-note {
+    font-size: 14px;
+    color: var(--ink-faint);
+    margin-top: 20px;
+    font-style: italic;
+    font-variation-settings: "opsz" 14, "SOFT" 80, "wght" 360;
+    line-height: 1.5;
+  }
+
+  .listen-viz {
+    margin-top: 24px;
+    height: 60px;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .listen-viz span {
+    flex: 1;
+    background: var(--moss);
+    border-radius: 1px 1px 0 0;
+    height: 2px;
+    transition: height 0.06s linear, opacity 0.2s ease;
+    opacity: 0.4;
+  }
+
+  /* ───────── Card grid for sections ───────── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-top: 16px;
+  }
+
+  .card {
+    background: var(--paper);
+    padding: clamp(24px, 3vw, 36px);
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: background 0.4s ease;
+    position: relative;
+  }
+  .card:hover {
+    background: var(--paper-deep);
+  }
+
+  .card-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--moss);
+    text-transform: uppercase;
+  }
+
+  .card h3 {
+    margin: 0;
+    font-size: clamp(22px, 2.2vw, 28px);
+    font-variation-settings: "opsz" 36, "SOFT" 50, "wght" 420;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  .card h3 em {
+    font-style: italic;
+    color: var(--moss-deep);
+    font-variation-settings: "opsz" 36, "SOFT" 100, "wght" 380;
+  }
+
+  .card p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  .card-link {
+    margin-top: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-link::after {
+    content: "→";
+    transition: transform 0.3s ease;
+    font-family: var(--serif);
+    font-size: 14px;
+  }
+  .card:hover .card-link::after { transform: translateX(4px); }
+
+  /* ───────── Pull quote ───────── */
+  .pull {
+    font-size: clamp(24px, 3.5vw, 38px);
+    line-height: 1.25;
+    font-style: italic;
+    font-variation-settings: "opsz" 60, "SOFT" 80, "wght" 360;
+    color: var(--moss-deep);
+    max-width: 24ch;
+    margin: clamp(40px, 6vh, 80px) 0;
+    padding-left: 24px;
+    border-left: 2px solid var(--moss);
+  }
+
+  /* ───────── Constraint table ───────── */
+  .constraints {
+    margin-top: 28px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+  }
+  .constraint {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 24px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .constraint dt {
+    color: var(--moss-deep);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+  }
+  .constraint dd {
+    margin: 0;
+    color: var(--ink);
+  }
+  .constraint dd em {
+    color: var(--ink-faint);
+    font-style: italic;
+    font-family: var(--serif);
+    font-variation-settings: "opsz" 14, "SOFT" 80, "wght" 360;
+  }
+
+  /* ───────── Caveats box ───────── */
+  .caveats {
+    background: rgba(168, 90, 58, 0.05);
+    border-left: 2px solid var(--rust);
+    padding: clamp(20px, 3vw, 32px);
+    max-width: var(--measure);
+    margin-top: 28px;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+  }
+  .caveats strong {
+    color: var(--rust);
+    font-variation-settings: "opsz" 14, "SOFT" 30, "wght" 520;
+    display: block;
+    margin-bottom: 12px;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .caveats p { margin: 0 0 0.8em; }
+  .caveats p:last-child { margin-bottom: 0; }
+
+  /* ───────── Footer ───────── */
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: clamp(40px, 6vh, 70px) 0 clamp(60px, 8vh, 100px);
+    margin-top: clamp(60px, 10vh, 100px);
+    color: var(--ink-faint);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  footer .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 40px;
+    margin-bottom: 40px;
+  }
+  footer h4 {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0 0 16px;
+    font-weight: 500;
+  }
+  footer ul { list-style: none; padding: 0; margin: 0; }
+  footer li { margin-bottom: 8px; }
+  footer a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+  footer a:hover { border-bottom-color: var(--moss); }
+  footer .colophon {
+    border-top: 1px solid var(--rule);
+    padding-top: 24px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    line-height: 1.7;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+
+  /* ───────── Reveal on scroll ───────── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 1.2s cubic-bezier(.2,.7,.3,1), transform 1.2s cubic-bezier(.2,.7,.3,1);
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal.delay-1 { transition-delay: 0.1s; }
+  .reveal.delay-2 { transition-delay: 0.25s; }
+  .reveal.delay-3 { transition-delay: 0.4s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+    .reveal { opacity: 1; transform: none; }
+  }
+
+  /* Selection */
+  ::selection {
+    background: var(--moss-pale);
+    color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<div class="circuit" aria-hidden="true">
+  <span class="circuit-label">your circuit, listening</span>
+  <span class="circuit-dot"></span>
+</div>
+
+<div class="spine"></div>
+
+<main>
+  <div class="wrap">
+
+    <!-- ═══ Hero ═══ -->
+    <header class="hero">
+      <p class="eyebrow">a small wearable / open research project</p>
+      <h1 class="title">Sentinels<em>.</em></h1>
+      <p class="lede">
+        A device that listens to the soundscape and gently maintains it — emitting calibrated bird-band signals at the volume of <em>quiet conversation</em>, so the brainstem can stand down.
+      </p>
+
+      <div class="spectrum" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
+    </header>
+
+    <p class="ornament">— ♪ —</p>
+
+    <!-- ═══ The hypothesis ═══ -->
+    <section id="hypothesis">
+      <p class="section-num reveal">§ 01 — The hypothesis</p>
+      <h2 class="reveal delay-1">A circuit that doesn't know you live in a city.</h2>
+      <div class="prose">
+        <p class="reveal delay-1">Mammals appear to use continuous ambient soundscape as a proxy for <em>no large predator currently moving through the environment</em>. Birdsong, in roughly the 1–8&nbsp;kHz band at low volume, is a canonical signal that this monitoring system seems tuned to.</p>
+
+        <p class="reveal delay-2">Recent studies provide reasonable evidence that even <em>recorded</em> birdsong produces measurable reductions in anxiety, with effects persisting for hours after the sound stops. The response appears to be volume-sensitive: alpha activity rises at quiet conversational levels and inverts above about sixty decibels.</p>
+
+        <p class="reveal delay-3">A small wearable could provide this signal continuously and unobtrusively in environments where real birds are absent — offices, public transit, hospitals, dense urban interiors. <strong>That's the bet this project exists to test.</strong></p>
+      </div>
+
+      <blockquote class="pull reveal">
+        Most of what gets labelled mental fatigue is hypervigilance running in the background.
+      </blockquote>
+    </section>
+
+    <p class="ornament">— ♪ —</p>
+
+    <!-- ═══ Listen ═══ -->
+    <section id="listen">
+      <p class="section-num reveal">§ 02 — A demonstration, in miniature</p>
+      <h2 class="reveal delay-1">Listen, <em>quietly</em>.</h2>
+      <div class="prose reveal delay-1">
+        <p>Below is a small Web Audio sketch of the kind of soundscape the device would emit. It is procedurally synthesised — the device should never loop a recording. Set your volume <em>low</em> first; the demo is calibrated to be heard at quiet-conversation levels.</p>
+      </div>
+
+      <div class="listen reveal delay-2">
+        <div class="listen-head">
+          <h3 class="listen-title">A procedurally-assembled chorus</h3>
+          <p class="listen-meta">~12s · band <span>1–6 kHz</span> · target <span>−24 dBFS</span></p>
+        </div>
+
+        <button class="listen-button" id="play">
+          <span class="icon"></span>
+          <span class="label">Listen</span>
+        </button>
+
+        <div class="listen-viz" id="viz" aria-hidden="true">
+          <!-- Bars injected by JS -->
+        </div>
+
+        <p class="listen-note">
+          A real device would do this for hours, drifting slowly through the day, attenuating against ambient noise, deferring to real birds when they sing nearby. This sketch just hints at the timbre.
+        </p>
+      </div>
+    </section>
+
+    <p class="ornament">— ♪ —</p>
+
+    <!-- ═══ The mechanism ═══ -->
+    <section id="mechanism">
+      <p class="section-num reveal">§ 03 — Mechanism</p>
+      <h2 class="reveal delay-1">Three things <em>downregulate</em> simultaneously.</h2>
+      <div class="prose reveal delay-1">
+        <p>When the brain registers ambient acoustic safety, the amygdala settles, the parasympathetic nervous system takes over from the sympathetic, and the rumination circuit in the posterior cingulate cortex quiets. Heart-rate variability rises; cortisol drops. The mood lift outlasts the sound.</p>
+        <p>This is the broad shape of the <em>nature-restoration</em> literature. The narrower, more interesting question — and the one this project is built around — is whether a small device emitting the right kind of signal at the right volume can engage the same response in environments where real birds are absent.</p>
+      </div>
+
+      <dl class="constraints reveal delay-2">
+        <div class="constraint">
+          <dt>Frequency</dt>
+          <dd>1,000–8,000&nbsp;Hz <em>— where temperate-zone bird vocalisation lives</em></dd>
+        </div>
+        <div class="constraint">
+          <dt>Volume</dt>
+          <dd>45–55&nbsp;dB(A) <em>— above sixty, the response inverts</em></dd>
+        </div>
+        <div class="constraint">
+          <dt>Continuity</dt>
+          <dd>Stochastic, never looped <em>— habituation is the failure mode</em></dd>
+        </div>
+        <div class="constraint">
+          <dt>Presence</dt>
+          <dd>Heard but not foregrounded <em>— available to be ignored</em></dd>
+        </div>
+      </dl>
+    </section>
+
+    <p class="ornament">— ♪ —</p>
+
+    <!-- ═══ Cards: device / research / experiments ═══ -->
+    <section id="explore">
+      <p class="section-num reveal">§ 04 — What's in the project</p>
+      <h2 class="reveal delay-1">The vision, taken <em>seriously</em>.</h2>
+      <div class="prose reveal delay-1">
+        <p>Three documents form the spine of the work: the hardware design, the research it's grounded in, and the experimental methodology that would either support the hypothesis or falsify it. This is a personal-research project, not a product — and that's reflected in what it commits to.</p>
+      </div>
+
+      <div class="cards reveal delay-2">
+        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/docs/hardware.md">
+          <span class="card-num">§ 04.1 — Hardware</span>
+          <h3>The <em>device</em></h3>
+          <p>Pendant or open-ear, around twenty pounds in components. ESP32-S3, I²S DAC, MEMS mic for ambient calibration, optional light sensor for circadian behaviour. Bill of materials, form-factor trade-offs, the acoustic constraints the design has to respect.</p>
+          <span class="card-link">Read the hardware notes</span>
+        </a>
+
+        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/docs/firmware.md">
+          <span class="card-num">§ 04.2 — Firmware</span>
+          <h3>Procedural <em>audio</em></h3>
+          <p>The technical bet, expanded. A small library of stems, a Scene Director that decides what the soundscape should be, a Voice Allocator that schedules calls with realistic gap timing. Optional bird-aware mode: real birds make the device defer.</p>
+          <span class="card-link">Read the firmware notes</span>
+        </a>
+
+        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/docs/research.md">
+          <span class="card-num">§ 04.3 — Research</span>
+          <h3>The <em>evidence</em></h3>
+          <p>Stobbe et al. (2022), Hammoud et al. (2022), Yu et al. (2025), and the broader nature-restoration literature — with honest notes on what each paper actually shows, what it doesn't, and where the popular narrative outruns the science.</p>
+          <span class="card-link">Read the research notes</span>
+        </a>
+
+        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/docs/experiments.md">
+          <span class="card-num">§ 04.4 — Methodology</span>
+          <h3>How we'd <em>know</em></h3>
+          <p>A four-week n=1 self-experiment with sealed schedules, a small pre-registered crossover pilot with a sham control, and a list of results that would falsify the project. Anything that calls itself a wellness device and ships without a falsification plan is a placebo.</p>
+          <span class="card-link">Read the methodology</span>
+        </a>
+      </div>
+    </section>
+
+    <p class="ornament">— ♪ —</p>
+
+    <!-- ═══ Caveats ═══ -->
+    <section id="honesty">
+      <p class="section-num reveal">§ 05 — Where we have to be careful</p>
+      <h2 class="reveal delay-1">What the science <em>does not</em> say.</h2>
+      <div class="prose reveal delay-1">
+        <p>The behavioural and EEG effects of birdsong on stress markers are real and replicated. The specific evolutionary-neuroethological story — the “200-million-year-old predator-detection circuit” — is plausible <em>narrative</em>, not established neuroscience.</p>
+        <p>Wellness-coded interventions are also notoriously susceptible to placebo, novelty, and reporting-bias effects. The methodology takes this seriously.</p>
+      </div>
+
+      <div class="caveats reveal delay-2">
+        <strong>What this project is not</strong>
+        <p>Not a medical device. Not intended to treat, diagnose, or cure anything. No efficacy claims should be inferred from the existence of this site. The current state of the project is a falsifiable hypothesis and a clear plan to test it.</p>
+        <p>Negative results, if we find them, will be published as readily as positive ones.</p>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ═══ Footer ═══ -->
+  <footer>
+    <div class="wrap">
+      <div class="columns">
+        <div>
+          <h4>Repository</h4>
+          <ul>
+            <li><a href="https://github.com/christopherdebeer/sentinels">github.com/christopherdebeer/sentinels</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/issues">open issues</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/LICENSE">license</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Documents</h4>
+          <ul>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/hardware.md">hardware</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/firmware.md">firmware</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/research.md">research</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/experiments.md">experiments</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Citations</h4>
+          <ul>
+            <li><a href="https://doi.org/10.1038/s41598-022-20841-0">Stobbe et&nbsp;al. 2022</a></li>
+            <li><a href="https://doi.org/10.1038/s41598-022-20207-6">Hammoud et&nbsp;al. 2022</a></li>
+            <li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0003682X25006279">Yu et&nbsp;al. 2025</a></li>
+            <li><a href="https://doi.org/10.1073/pnas.2013097118">Buxton et&nbsp;al. 2021</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="colophon">
+        <span>Set in Fraunces &amp; JetBrains Mono</span>
+        <span>Edinburgh · open research</span>
+      </div>
+    </div>
+  </footer>
+</main>
+
+<script>
+  // ───────── Reveal on scroll ─────────
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // ───────── Web Audio bird sketch ─────────
+  // Procedural synthesis of bird-like calls. Four chirp types,
+  // scheduled stochastically over ~12 seconds, with gentle envelopes
+  // and a master gain calibrated for "quiet conversation" levels.
+  const playBtn = document.getElementById('play');
+  const vizContainer = document.getElementById('viz');
+  const NUM_BARS = 32;
+
+  // Build viz bars
+  for (let i = 0; i < NUM_BARS; i++) {
+    const bar = document.createElement('span');
+    vizContainer.appendChild(bar);
+  }
+  const bars = vizContainer.querySelectorAll('span');
+
+  let ctx = null;
+  let masterGain = null;
+  let analyser = null;
+  let isPlaying = false;
+  let vizFrame = null;
+
+  function ensureAudio() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 0;
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.65;
+      masterGain.connect(analyser);
+      analyser.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume();
+  }
+
+  // Single chirp with frequency sweep & envelope
+  function chirpSweep(at, fStart, fPeak, fEnd, dur) {
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(fStart, at);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(50, fPeak), at + dur * 0.35);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(50, fEnd), at + dur);
+
+    env.gain.setValueAtTime(0, at);
+    env.gain.linearRampToValueAtTime(0.18, at + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.001, at + dur);
+
+    osc.connect(env);
+    env.connect(masterGain);
+    osc.start(at);
+    osc.stop(at + dur + 0.05);
+  }
+
+  // Trill: amplitude-modulated steady tone
+  function chirpTrill(at, freq, modRate, dur) {
+    const osc = ctx.createOscillator();
+    const lfo = ctx.createOscillator();
+    const env = ctx.createGain();
+    const lfoGain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    lfo.type = 'sine';
+    lfo.frequency.value = modRate;
+    lfoGain.gain.value = 0.07;
+
+    env.gain.setValueAtTime(0, at);
+    env.gain.linearRampToValueAtTime(0.08, at + 0.015);
+    env.gain.linearRampToValueAtTime(0.08, at + dur * 0.85);
+    env.gain.linearRampToValueAtTime(0.0001, at + dur);
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(env.gain);
+    osc.connect(env);
+    env.connect(masterGain);
+    osc.start(at);
+    lfo.start(at);
+    osc.stop(at + dur + 0.05);
+    lfo.stop(at + dur + 0.05);
+  }
+
+  // Pip: short steady tone
+  function chirpPip(at, freq, dur) {
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, at);
+
+    env.gain.setValueAtTime(0, at);
+    env.gain.linearRampToValueAtTime(0.13, at + 0.008);
+    env.gain.exponentialRampToValueAtTime(0.001, at + dur);
+
+    osc.connect(env);
+    env.connect(masterGain);
+    osc.start(at);
+    osc.stop(at + dur + 0.05);
+  }
+
+  // Warble: slow frequency modulation
+  function chirpWarble(at, baseFreq, dur) {
+    const osc = ctx.createOscillator();
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    const env = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = baseFreq;
+
+    lfo.type = 'sine';
+    lfo.frequency.value = 6 + Math.random() * 4;
+    lfoGain.gain.value = baseFreq * 0.05;
+
+    env.gain.setValueAtTime(0, at);
+    env.gain.linearRampToValueAtTime(0.11, at + 0.02);
+    env.gain.linearRampToValueAtTime(0.11, at + dur * 0.8);
+    env.gain.exponentialRampToValueAtTime(0.001, at + dur);
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    osc.connect(env);
+    env.connect(masterGain);
+    osc.start(at);
+    lfo.start(at);
+    osc.stop(at + dur + 0.05);
+    lfo.stop(at + dur + 0.05);
+  }
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+  function scheduleChorus(startAt, totalDur) {
+    let t = startAt + 0.4;
+    const types = ['sweep', 'sweep', 'trill', 'pip', 'warble', 'sweep'];
+    while (t < startAt + totalDur - 0.5) {
+      const type = pick(types);
+      if (type === 'sweep') {
+        const center = rand(2200, 5500);
+        const span = rand(400, 1400);
+        const dur = rand(0.10, 0.28);
+        const upFirst = Math.random() > 0.5;
+        chirpSweep(t,
+          upFirst ? center - span : center + span,
+          center,
+          upFirst ? center + span * 0.4 : center - span * 0.4,
+          dur);
+      } else if (type === 'trill') {
+        chirpTrill(t, rand(2800, 4800), rand(22, 38), rand(0.25, 0.55));
+      } else if (type === 'pip') {
+        chirpPip(t, rand(3000, 5800), rand(0.04, 0.10));
+        // Often pips come in clusters
+        if (Math.random() > 0.5) {
+          chirpPip(t + 0.12, rand(3000, 5800), rand(0.04, 0.10));
+        }
+        if (Math.random() > 0.7) {
+          chirpPip(t + 0.24, rand(3000, 5800), rand(0.04, 0.10));
+        }
+      } else if (type === 'warble') {
+        chirpWarble(t, rand(2400, 4000), rand(0.30, 0.70));
+      }
+      // Heavy-tailed gap
+      t += Math.pow(Math.random(), 2.2) * 1.6 + 0.2;
+    }
+  }
+
+  function startViz() {
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    function tick() {
+      if (!isPlaying) return;
+      analyser.getByteFrequencyData(buf);
+      // Map FFT bins to NUM_BARS bars in 1-8kHz range
+      const sampleRate = ctx.sampleRate;
+      const nyquist = sampleRate / 2;
+      const startBin = Math.floor((1000 / nyquist) * buf.length);
+      const endBin = Math.floor((8000 / nyquist) * buf.length);
+      const range = endBin - startBin;
+      for (let i = 0; i < NUM_BARS; i++) {
+        const bin0 = startBin + Math.floor((i / NUM_BARS) * range);
+        const bin1 = startBin + Math.floor(((i + 1) / NUM_BARS) * range);
+        let sum = 0;
+        for (let j = bin0; j < bin1; j++) sum += buf[j];
+        const avg = sum / Math.max(1, bin1 - bin0);
+        const h = Math.max(2, (avg / 255) * 60);
+        bars[i].style.height = h + 'px';
+        bars[i].style.opacity = 0.4 + (avg / 255) * 0.6;
+      }
+      vizFrame = requestAnimationFrame(tick);
+    }
+    tick();
+  }
+
+  function stopViz() {
+    if (vizFrame) cancelAnimationFrame(vizFrame);
+    bars.forEach(b => { b.style.height = '2px'; b.style.opacity = 0.4; });
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (isPlaying) return;
+    ensureAudio();
+    isPlaying = true;
+    playBtn.classList.add('playing');
+    playBtn.querySelector('.label').textContent = 'Listening…';
+    document.querySelector('.spectrum').classList.add('active');
+
+    const totalDur = 12; // seconds
+    const fadeIn = 0.6;
+    const fadeOut = 1.5;
+    const now = ctx.currentTime;
+
+    masterGain.gain.cancelScheduledValues(now);
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(0.5, now + fadeIn);
+    masterGain.gain.linearRampToValueAtTime(0.5, now + totalDur - fadeOut);
+    masterGain.gain.linearRampToValueAtTime(0, now + totalDur);
+
+    scheduleChorus(now, totalDur);
+    startViz();
+
+    setTimeout(() => {
+      isPlaying = false;
+      stopViz();
+      playBtn.classList.remove('playing');
+      playBtn.querySelector('.label').textContent = 'Listen again';
+      document.querySelector('.spectrum').classList.remove('active');
+    }, totalDur * 1000 + 200);
+  });
+</script>
+
+</body>
+</html>
