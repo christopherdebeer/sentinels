@@ -65,22 +65,55 @@
     z-index: 2;
   }
 
-  /* ───────── Breathing circuit indicator ───────── */
+  /* ───────── Ambient toggle (corner) ───────── */
   .circuit {
     position: fixed;
-    top: 28px;
-    right: 32px;
+    top: 24px;
+    right: 28px;
     z-index: 100;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     font-family: var(--mono);
     font-size: 11px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-faint);
-    cursor: default;
+    cursor: pointer;
+    background: rgba(245, 240, 230, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--rule);
+    border-radius: 100px;
+    padding: 9px 14px 9px 18px;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
   }
+
+  .circuit:hover {
+    background: rgba(245, 240, 230, 0.95);
+    border-color: var(--moss-pale);
+    color: var(--ink-soft);
+  }
+
+  .circuit[data-playing="true"] {
+    color: var(--moss-deep);
+    border-color: var(--moss-pale);
+    background: rgba(184, 194, 168, 0.18);
+  }
+
+  .circuit[data-playing="true"]:hover {
+    background: rgba(184, 194, 168, 0.30);
+  }
+
+  .circuit-label {
+    opacity: 0.55;
+    transition: opacity 0.4s ease;
+    white-space: nowrap;
+  }
+  .circuit:hover .circuit-label,
+  .circuit[data-playing="true"] .circuit-label { opacity: 1; }
 
   .circuit-dot {
     width: 8px;
@@ -89,18 +122,18 @@
     background: var(--moss);
     box-shadow: 0 0 0 0 rgba(90, 107, 74, 0.6);
     animation: breathe 5.5s cubic-bezier(.4,0,.6,1) infinite;
+    transition: background 0.4s ease;
+  }
+
+  .circuit[data-playing="true"] .circuit-dot {
+    background: var(--moss-deep);
+    animation-duration: 2.4s;
   }
 
   @keyframes breathe {
     0%, 100% { box-shadow: 0 0 0 0 rgba(90, 107, 74, 0.5); transform: scale(1); }
     50%      { box-shadow: 0 0 0 7px rgba(90, 107, 74, 0); transform: scale(1.15); }
   }
-
-  .circuit-label {
-    opacity: 0;
-    transition: opacity 0.5s ease;
-  }
-  .circuit:hover .circuit-label { opacity: 1; }
 
   /* ───────── Layout scaffold ───────── */
   .wrap {
@@ -421,6 +454,115 @@
     opacity: 0.4;
   }
 
+  /* ───────── Listen controls ───────── */
+  .listen-sliders {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .slider-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 100px;
+    align-items: center;
+    gap: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .slider-name {
+    color: var(--ink-faint);
+  }
+
+  .slider-readout {
+    text-align: right;
+    color: var(--moss-deep);
+  }
+
+  .slider-row input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 2px;
+    background: var(--rule);
+    border-radius: 1px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--moss);
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+    border: 2px solid var(--paper);
+    box-shadow: 0 0 0 1px var(--moss);
+  }
+  .slider-row input[type="range"]::-webkit-slider-thumb:hover,
+  .slider-row input[type="range"]:focus::-webkit-slider-thumb {
+    transform: scale(1.2);
+    background: var(--moss-deep);
+    box-shadow: 0 0 0 1px var(--moss-deep);
+  }
+  .slider-row input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--moss);
+    cursor: pointer;
+    border: 2px solid var(--paper);
+    box-shadow: 0 0 0 1px var(--moss);
+  }
+
+  .listen-voices {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .listen-voices .slider-name {
+    margin-right: 8px;
+    width: 64px;
+    flex-shrink: 0;
+  }
+
+  .voice-chip {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-faint);
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  .voice-chip:hover {
+    border-color: var(--moss-pale);
+    color: var(--ink-soft);
+  }
+  .voice-chip[data-on="true"] {
+    background: var(--moss);
+    color: var(--paper);
+    border-color: var(--moss);
+  }
+  .voice-chip[data-on="true"]:hover {
+    background: var(--moss-deep);
+    border-color: var(--moss-deep);
+  }
+
   /* ───────── Card grid for sections ───────── */
   .cards {
     display: grid;
@@ -641,10 +783,10 @@
 </head>
 <body>
 
-<div class="circuit" aria-hidden="true">
-  <span class="circuit-label">your circuit, listening</span>
+<button class="circuit" id="ambientToggle" data-playing="false" type="button" aria-label="Toggle ambient soundscape">
+  <span class="circuit-label" id="circuitLabel">ambient mode</span>
   <span class="circuit-dot"></span>
-</div>
+</button>
 
 <div class="spine"></div>
 
@@ -691,16 +833,16 @@
       <p class="section-num reveal">§ 02 — A demonstration, in miniature</p>
       <h2 class="reveal delay-1">Listen, <em>quietly</em>.</h2>
       <div class="prose reveal delay-1">
-        <p>Below is a small Web Audio sketch of the kind of soundscape the device would emit. It is procedurally synthesised — the device should never loop a recording. Set your volume <em>low</em> first; the demo is calibrated to be heard at quiet-conversation levels.</p>
+        <p>Below is a small Web Audio sketch of the kind of soundscape the device would emit. It is procedurally synthesised — the device should never loop a recording. Set your volume <em>low</em> first, tap <em>Listen</em>, and the chorus will keep going as you read. The corner indicator above pauses from anywhere.</p>
       </div>
 
       <div class="listen reveal delay-2">
         <div class="listen-head">
           <h3 class="listen-title">A procedurally-assembled chorus</h3>
-          <p class="listen-meta">~12s · band <span>1–6 kHz</span> · target <span>−24 dBFS</span></p>
+          <p class="listen-meta">band <span>1–6 kHz</span> · target <span>−24 dBFS</span> · <span>continuous</span></p>
         </div>
 
-        <button class="listen-button" id="play">
+        <button class="listen-button" id="play" type="button">
           <span class="icon"></span>
           <span class="label">Listen</span>
         </button>
@@ -709,8 +851,29 @@
           <!-- Bars injected by JS -->
         </div>
 
+        <div class="listen-sliders">
+          <label class="slider-row">
+            <span class="slider-name">density</span>
+            <input type="range" id="density" min="0" max="100" value="40" aria-label="Call density">
+            <span class="slider-readout" id="densityReadout">gentle</span>
+          </label>
+          <label class="slider-row">
+            <span class="slider-name">volume</span>
+            <input type="range" id="volume" min="0" max="100" value="45" aria-label="Volume">
+            <span class="slider-readout" id="volumeReadout">quiet</span>
+          </label>
+        </div>
+
+        <div class="listen-voices">
+          <span class="slider-name">voices</span>
+          <button class="voice-chip" type="button" data-voice="sweep" data-on="true">sweep</button>
+          <button class="voice-chip" type="button" data-voice="trill" data-on="true">trill</button>
+          <button class="voice-chip" type="button" data-voice="pip" data-on="true">pip</button>
+          <button class="voice-chip" type="button" data-voice="warble" data-on="true">warble</button>
+        </div>
+
         <p class="listen-note">
-          A real device would do this for hours, drifting slowly through the day, attenuating against ambient noise, deferring to real birds when they sing nearby. This sketch just hints at the timbre.
+          The chorus drifts slowly while it plays — call rate, voice mix, and frequency centre all wander on different timescales, so the soundscape evolves without becoming erratic. Scroll on; it'll keep going. The corner indicator pauses from anywhere.
         </p>
       </div>
     </section>
@@ -858,232 +1021,379 @@
   }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
   document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 
-  // ───────── Web Audio bird sketch ─────────
-  // Procedural synthesis of bird-like calls. Four chirp types,
-  // scheduled stochastically over ~12 seconds, with gentle envelopes
-  // and a master gain calibrated for "quiet conversation" levels.
-  const playBtn = document.getElementById('play');
-  const vizContainer = document.getElementById('viz');
+  // ───────── Visualiser bars ─────────
   const NUM_BARS = 32;
-
-  // Build viz bars
-  for (let i = 0; i < NUM_BARS; i++) {
-    const bar = document.createElement('span');
-    vizContainer.appendChild(bar);
-  }
+  const vizContainer = document.getElementById('viz');
+  for (let i = 0; i < NUM_BARS; i++) vizContainer.appendChild(document.createElement('span'));
   const bars = vizContainer.querySelectorAll('span');
 
-  let ctx = null;
-  let masterGain = null;
-  let analyser = null;
-  let isPlaying = false;
-  let vizFrame = null;
+  // ───────── Audio engine ─────────
+  // State-driven engine. Both the corner toggle and the Section 2 panel
+  // talk to the same instance. The chorus is continuous-by-default with
+  // slowly-drifting parameters: call rate, voice mix selection, and the
+  // frequency centre wander on different sine periods so the soundscape
+  // evolves without ever being erratic.
+  const Sentinels = {
+    ctx: null,
+    master: null,
+    analyser: null,
 
-  function ensureAudio() {
-    if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      masterGain = ctx.createGain();
-      masterGain.gain.value = 0;
-      analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.65;
-      masterGain.connect(analyser);
-      analyser.connect(ctx.destination);
-    }
-    if (ctx.state === 'suspended') ctx.resume();
-  }
+    state: {
+      playing: false,
+      volume: 0.45,    // 0..1, mapped to actual gain inside the engine
+      density: 0.40,   // 0..1, low = sparse, high = busy
+      voices: { sweep: true, trill: true, pip: true, warble: true },
+    },
 
-  // Single chirp with frequency sweep & envelope
-  function chirpSweep(at, fStart, fPeak, fEnd, dur) {
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(fStart, at);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(50, fPeak), at + dur * 0.35);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(50, fEnd), at + dur);
+    schedulerInterval: null,
+    vizFrame: null,
+    scheduledUntil: 0,
+    subscribers: [],
 
-    env.gain.setValueAtTime(0, at);
-    env.gain.linearRampToValueAtTime(0.18, at + 0.01);
-    env.gain.exponentialRampToValueAtTime(0.001, at + dur);
-
-    osc.connect(env);
-    env.connect(masterGain);
-    osc.start(at);
-    osc.stop(at + dur + 0.05);
-  }
-
-  // Trill: amplitude-modulated steady tone
-  function chirpTrill(at, freq, modRate, dur) {
-    const osc = ctx.createOscillator();
-    const lfo = ctx.createOscillator();
-    const env = ctx.createGain();
-    const lfoGain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-
-    lfo.type = 'sine';
-    lfo.frequency.value = modRate;
-    lfoGain.gain.value = 0.07;
-
-    env.gain.setValueAtTime(0, at);
-    env.gain.linearRampToValueAtTime(0.08, at + 0.015);
-    env.gain.linearRampToValueAtTime(0.08, at + dur * 0.85);
-    env.gain.linearRampToValueAtTime(0.0001, at + dur);
-
-    lfo.connect(lfoGain);
-    lfoGain.connect(env.gain);
-    osc.connect(env);
-    env.connect(masterGain);
-    osc.start(at);
-    lfo.start(at);
-    osc.stop(at + dur + 0.05);
-    lfo.stop(at + dur + 0.05);
-  }
-
-  // Pip: short steady tone
-  function chirpPip(at, freq, dur) {
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, at);
-
-    env.gain.setValueAtTime(0, at);
-    env.gain.linearRampToValueAtTime(0.13, at + 0.008);
-    env.gain.exponentialRampToValueAtTime(0.001, at + dur);
-
-    osc.connect(env);
-    env.connect(masterGain);
-    osc.start(at);
-    osc.stop(at + dur + 0.05);
-  }
-
-  // Warble: slow frequency modulation
-  function chirpWarble(at, baseFreq, dur) {
-    const osc = ctx.createOscillator();
-    const lfo = ctx.createOscillator();
-    const lfoGain = ctx.createGain();
-    const env = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.value = baseFreq;
-
-    lfo.type = 'sine';
-    lfo.frequency.value = 6 + Math.random() * 4;
-    lfoGain.gain.value = baseFreq * 0.05;
-
-    env.gain.setValueAtTime(0, at);
-    env.gain.linearRampToValueAtTime(0.11, at + 0.02);
-    env.gain.linearRampToValueAtTime(0.11, at + dur * 0.8);
-    env.gain.exponentialRampToValueAtTime(0.001, at + dur);
-
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
-    osc.connect(env);
-    env.connect(masterGain);
-    osc.start(at);
-    lfo.start(at);
-    osc.stop(at + dur + 0.05);
-    lfo.stop(at + dur + 0.05);
-  }
-
-  function rand(a, b) { return a + Math.random() * (b - a); }
-  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-
-  function scheduleChorus(startAt, totalDur) {
-    let t = startAt + 0.4;
-    const types = ['sweep', 'sweep', 'trill', 'pip', 'warble', 'sweep'];
-    while (t < startAt + totalDur - 0.5) {
-      const type = pick(types);
-      if (type === 'sweep') {
-        const center = rand(2200, 5500);
-        const span = rand(400, 1400);
-        const dur = rand(0.10, 0.28);
-        const upFirst = Math.random() > 0.5;
-        chirpSweep(t,
-          upFirst ? center - span : center + span,
-          center,
-          upFirst ? center + span * 0.4 : center - span * 0.4,
-          dur);
-      } else if (type === 'trill') {
-        chirpTrill(t, rand(2800, 4800), rand(22, 38), rand(0.25, 0.55));
-      } else if (type === 'pip') {
-        chirpPip(t, rand(3000, 5800), rand(0.04, 0.10));
-        // Often pips come in clusters
-        if (Math.random() > 0.5) {
-          chirpPip(t + 0.12, rand(3000, 5800), rand(0.04, 0.10));
-        }
-        if (Math.random() > 0.7) {
-          chirpPip(t + 0.24, rand(3000, 5800), rand(0.04, 0.10));
-        }
-      } else if (type === 'warble') {
-        chirpWarble(t, rand(2400, 4000), rand(0.30, 0.70));
+    ensureContext() {
+      if (!this.ctx) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new Ctor();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = 0;
+        this.analyser = this.ctx.createAnalyser();
+        this.analyser.fftSize = 1024;
+        this.analyser.smoothingTimeConstant = 0.65;
+        this.master.connect(this.analyser);
+        this.analyser.connect(this.ctx.destination);
       }
-      // Heavy-tailed gap
-      t += Math.pow(Math.random(), 2.2) * 1.6 + 0.2;
-    }
-  }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    },
 
-  function startViz() {
-    const buf = new Uint8Array(analyser.frequencyBinCount);
-    function tick() {
-      if (!isPlaying) return;
-      analyser.getByteFrequencyData(buf);
-      // Map FFT bins to NUM_BARS bars in 1-8kHz range
-      const sampleRate = ctx.sampleRate;
-      const nyquist = sampleRate / 2;
-      const startBin = Math.floor((1000 / nyquist) * buf.length);
-      const endBin = Math.floor((8000 / nyquist) * buf.length);
-      const range = endBin - startBin;
-      for (let i = 0; i < NUM_BARS; i++) {
-        const bin0 = startBin + Math.floor((i / NUM_BARS) * range);
-        const bin1 = startBin + Math.floor(((i + 1) / NUM_BARS) * range);
-        let sum = 0;
-        for (let j = bin0; j < bin1; j++) sum += buf[j];
-        const avg = sum / Math.max(1, bin1 - bin0);
-        const h = Math.max(2, (avg / 255) * 60);
-        bars[i].style.height = h + 'px';
-        bars[i].style.opacity = 0.4 + (avg / 255) * 0.6;
+    targetGain() {
+      // Map 0..1 volume to 0..0.55 actual master gain.
+      // Capped so even at 100% it stays in "quiet conversation" territory
+      // for typical playback. The user's system volume is the outer envelope.
+      return this.state.volume * 0.55;
+    },
+
+    start() {
+      if (this.state.playing) return;
+      this.ensureContext();
+      this.state.playing = true;
+
+      const now = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(this.master.gain.value, now);
+      this.master.gain.linearRampToValueAtTime(this.targetGain(), now + 1.4);
+
+      this.scheduledUntil = now + 0.4;
+      this.scheduleAhead();
+      this.schedulerInterval = setInterval(() => this.scheduleAhead(), 800);
+      this.startViz();
+      this.notify();
+    },
+
+    stop() {
+      if (!this.state.playing) return;
+      this.state.playing = false;
+
+      if (this.schedulerInterval) {
+        clearInterval(this.schedulerInterval);
+        this.schedulerInterval = null;
       }
-      vizFrame = requestAnimationFrame(tick);
+
+      const now = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(now);
+      this.master.gain.setValueAtTime(this.master.gain.value, now);
+      this.master.gain.linearRampToValueAtTime(0, now + 1.0);
+
+      setTimeout(() => this.stopViz(), 1100);
+      this.notify();
+    },
+
+    toggle() { this.state.playing ? this.stop() : this.start(); },
+
+    setVolume(v) {
+      this.state.volume = v;
+      if (this.state.playing && this.ctx) {
+        const now = this.ctx.currentTime;
+        this.master.gain.cancelScheduledValues(now);
+        this.master.gain.setValueAtTime(this.master.gain.value, now);
+        this.master.gain.linearRampToValueAtTime(this.targetGain(), now + 0.3);
+      }
+    },
+
+    setDensity(d) { this.state.density = d; },
+
+    setVoice(type, enabled) {
+      // Refuse to disable the last enabled voice
+      if (!enabled) {
+        const others = Object.entries(this.state.voices)
+          .filter(([k, v]) => k !== type && v);
+        if (others.length === 0) return false;
+      }
+      this.state.voices[type] = enabled;
+      return true;
+    },
+
+    // ───────── Scheduling ─────────
+    scheduleAhead() {
+      if (!this.state.playing) return;
+      const horizon = this.ctx.currentTime + 2.0;
+
+      // Slow parameter drift via decoupled sines.
+      // Period choices avoid common-denominator alignment so the
+      // soundscape doesn't fall into any obvious pattern.
+      const t = this.ctx.currentTime;
+      const driftRate = 0.5 + 0.4 * Math.sin(t * 0.013);  // ~8min period
+      const driftFreq = 0.5 + 0.5 * Math.sin(t * 0.008);  // ~13min period
+      const driftMix  = 0.5 + 0.5 * Math.sin(t * 0.021);  // ~5min period
+
+      while (this.scheduledUntil < horizon) {
+        this.scheduleOneCall(this.scheduledUntil, driftFreq, driftMix);
+
+        // Inter-call gap. density 0 → mean ~3.0s, density 1 → mean ~0.4s.
+        // driftRate adds slow ebb and flow.
+        const baseGap = 0.4 + (1 - this.state.density) * (1 - driftRate * 0.25) * 3.0;
+        // Heavy-tailed: most gaps short, occasional long stretches of quiet.
+        const u = Math.random();
+        const gap = baseGap * (0.3 + Math.pow(u, 2.5) * 2.5);
+        this.scheduledUntil += gap;
+      }
+    },
+
+    scheduleOneCall(at, driftFreq, driftMix) {
+      const enabled = Object.entries(this.state.voices)
+        .filter(([_, v]) => v).map(([k]) => k);
+      if (enabled.length === 0) return;
+
+      // Voice selection weights drift slowly via driftMix
+      const baseWeights = {
+        sweep: 3.0,
+        trill: 1.0 + driftMix * 0.5,
+        pip: 1.5,
+        warble: 0.8 + (1 - driftMix) * 0.6
+      };
+      const totalWeight = enabled.reduce((s, t) => s + baseWeights[t], 0);
+      let r = Math.random() * totalWeight;
+      let type = enabled[0];
+      for (const t of enabled) {
+        r -= baseWeights[t];
+        if (r <= 0) { type = t; break; }
+      }
+
+      // Frequency centre drifts between roughly 2.4kHz and 4.8kHz
+      const fCenter = 2400 + driftFreq * 2400;
+
+      switch (type) {
+        case 'sweep':  this.chirpSweep(at, fCenter); break;
+        case 'trill':  this.chirpTrill(at, fCenter); break;
+        case 'pip':    this.chirpPip(at, fCenter); break;
+        case 'warble': this.chirpWarble(at, fCenter); break;
+      }
+
+      // Pip clusters
+      if (type === 'pip') {
+        if (Math.random() > 0.5) this.chirpPip(at + 0.12, fCenter);
+        if (Math.random() > 0.7) this.chirpPip(at + 0.24, fCenter);
+      }
+    },
+
+    // ───────── Voices ─────────
+    chirpSweep(at, fCenter) {
+      const span = 400 + Math.random() * 1000;
+      const dur = 0.10 + Math.random() * 0.18;
+      const upFirst = Math.random() > 0.5;
+      const fStart = upFirst ? fCenter - span : fCenter + span;
+      const fEnd = upFirst ? fCenter + span * 0.4 : fCenter - span * 0.4;
+
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(Math.max(50, fStart), at);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(50, fCenter), at + dur * 0.35);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(50, fEnd), at + dur);
+
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(0.18, at + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, at + dur);
+
+      osc.connect(env);
+      env.connect(this.master);
+      osc.start(at);
+      osc.stop(at + dur + 0.05);
+    },
+
+    chirpTrill(at, fCenter) {
+      const freq = fCenter + (Math.random() - 0.5) * 800;
+      const modRate = 22 + Math.random() * 16;
+      const dur = 0.25 + Math.random() * 0.30;
+
+      const osc = this.ctx.createOscillator();
+      const lfo = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      const lfoGain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      lfo.type = 'sine';
+      lfo.frequency.value = modRate;
+      lfoGain.gain.value = 0.07;
+
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(0.08, at + 0.015);
+      env.gain.linearRampToValueAtTime(0.08, at + dur * 0.85);
+      env.gain.linearRampToValueAtTime(0.0001, at + dur);
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(env.gain);
+      osc.connect(env);
+      env.connect(this.master);
+      osc.start(at); lfo.start(at);
+      osc.stop(at + dur + 0.05); lfo.stop(at + dur + 0.05);
+    },
+
+    chirpPip(at, fCenter) {
+      const freq = fCenter + (Math.random() - 0.3) * 1400;
+      const dur = 0.04 + Math.random() * 0.06;
+
+      const osc = this.ctx.createOscillator();
+      const env = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(Math.max(800, freq), at);
+
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(0.13, at + 0.008);
+      env.gain.exponentialRampToValueAtTime(0.001, at + dur);
+
+      osc.connect(env);
+      env.connect(this.master);
+      osc.start(at);
+      osc.stop(at + dur + 0.05);
+    },
+
+    chirpWarble(at, fCenter) {
+      const baseFreq = fCenter + (Math.random() - 0.5) * 600;
+      const dur = 0.30 + Math.random() * 0.40;
+
+      const osc = this.ctx.createOscillator();
+      const lfo = this.ctx.createOscillator();
+      const lfoGain = this.ctx.createGain();
+      const env = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = baseFreq;
+      lfo.type = 'sine';
+      lfo.frequency.value = 6 + Math.random() * 4;
+      lfoGain.gain.value = baseFreq * 0.05;
+
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(0.11, at + 0.02);
+      env.gain.linearRampToValueAtTime(0.11, at + dur * 0.8);
+      env.gain.exponentialRampToValueAtTime(0.001, at + dur);
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      osc.connect(env);
+      env.connect(this.master);
+      osc.start(at); lfo.start(at);
+      osc.stop(at + dur + 0.05); lfo.stop(at + dur + 0.05);
+    },
+
+    // ───────── Visualiser ─────────
+    startViz() {
+      if (this.vizFrame) return;
+      const buf = new Uint8Array(this.analyser.frequencyBinCount);
+      const tick = () => {
+        if (!this.analyser) return;
+        this.analyser.getByteFrequencyData(buf);
+        const nyquist = this.ctx.sampleRate / 2;
+        const startBin = Math.floor((1000 / nyquist) * buf.length);
+        const endBin = Math.floor((8000 / nyquist) * buf.length);
+        const range = endBin - startBin;
+        for (let i = 0; i < NUM_BARS; i++) {
+          const bin0 = startBin + Math.floor((i / NUM_BARS) * range);
+          const bin1 = startBin + Math.floor(((i + 1) / NUM_BARS) * range);
+          let sum = 0;
+          for (let j = bin0; j < bin1; j++) sum += buf[j];
+          const avg = sum / Math.max(1, bin1 - bin0);
+          const h = Math.max(2, (avg / 255) * 60);
+          bars[i].style.height = h + 'px';
+          bars[i].style.opacity = 0.4 + (avg / 255) * 0.6;
+        }
+        this.vizFrame = requestAnimationFrame(tick);
+      };
+      tick();
+    },
+
+    stopViz() {
+      if (this.vizFrame) cancelAnimationFrame(this.vizFrame);
+      this.vizFrame = null;
+      bars.forEach(b => { b.style.height = '2px'; b.style.opacity = 0.4; });
+    },
+
+    // ───────── Subscribers ─────────
+    subscribe(fn) { this.subscribers.push(fn); fn(this.state); },
+    notify() { this.subscribers.forEach(fn => fn(this.state)); },
+  };
+
+  // ───────── UI bindings ─────────
+  const corner       = document.getElementById('ambientToggle');
+  const cornerLabel  = document.getElementById('circuitLabel');
+  const playBtn      = document.getElementById('play');
+  const playLabel    = playBtn.querySelector('.label');
+  const densityEl    = document.getElementById('density');
+  const densityRead  = document.getElementById('densityReadout');
+  const volumeEl     = document.getElementById('volume');
+  const volumeRead   = document.getElementById('volumeReadout');
+  const spectrum     = document.querySelector('.spectrum');
+
+  const densityWords = ['silent', 'sparse', 'gentle', 'moderate', 'lively', 'busy'];
+  const volumeWords  = ['silent', 'whisper', 'quiet', 'soft', 'present', 'too loud'];
+
+  function readoutFor(words, value) {
+    return words[Math.min(words.length - 1, Math.floor(value * words.length))];
+  }
+
+  Sentinels.subscribe((state) => {
+    corner.dataset.playing = String(state.playing);
+    cornerLabel.textContent = state.playing ? 'sentinels on' : 'ambient mode';
+    playBtn.classList.toggle('playing', state.playing);
+    playLabel.textContent = state.playing ? 'Pause' : 'Listen';
+    if (spectrum) spectrum.classList.toggle('active', state.playing);
+  });
+
+  corner.addEventListener('click', () => Sentinels.toggle());
+  playBtn.addEventListener('click', () => Sentinels.toggle());
+
+  densityEl.addEventListener('input', (e) => {
+    const v = e.target.value / 100;
+    Sentinels.setDensity(v);
+    densityRead.textContent = readoutFor(densityWords, v);
+  });
+
+  volumeEl.addEventListener('input', (e) => {
+    const v = e.target.value / 100;
+    Sentinels.setVolume(v);
+    volumeRead.textContent = readoutFor(volumeWords, v);
+  });
+
+  // Initialise readouts to match the default slider values
+  densityRead.textContent = readoutFor(densityWords, densityEl.value / 100);
+  volumeRead.textContent  = readoutFor(volumeWords, volumeEl.value / 100);
+
+  document.querySelectorAll('.voice-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const isOn = chip.dataset.on === 'true';
+      const ok = Sentinels.setVoice(chip.dataset.voice, !isOn);
+      if (ok) chip.dataset.on = String(!isOn);
+    });
+  });
+
+  // Suspend audio when tab is hidden — be a good citizen.
+  document.addEventListener('visibilitychange', () => {
+    if (!Sentinels.ctx) return;
+    if (document.hidden && Sentinels.state.playing) {
+      Sentinels.ctx.suspend();
+    } else if (!document.hidden && Sentinels.state.playing) {
+      Sentinels.ctx.resume();
     }
-    tick();
-  }
-
-  function stopViz() {
-    if (vizFrame) cancelAnimationFrame(vizFrame);
-    bars.forEach(b => { b.style.height = '2px'; b.style.opacity = 0.4; });
-  }
-
-  playBtn.addEventListener('click', () => {
-    if (isPlaying) return;
-    ensureAudio();
-    isPlaying = true;
-    playBtn.classList.add('playing');
-    playBtn.querySelector('.label').textContent = 'Listening…';
-    document.querySelector('.spectrum').classList.add('active');
-
-    const totalDur = 12; // seconds
-    const fadeIn = 0.6;
-    const fadeOut = 1.5;
-    const now = ctx.currentTime;
-
-    masterGain.gain.cancelScheduledValues(now);
-    masterGain.gain.setValueAtTime(0, now);
-    masterGain.gain.linearRampToValueAtTime(0.5, now + fadeIn);
-    masterGain.gain.linearRampToValueAtTime(0.5, now + totalDur - fadeOut);
-    masterGain.gain.linearRampToValueAtTime(0, now + totalDur);
-
-    scheduleChorus(now, totalDur);
-    startViz();
-
-    setTimeout(() => {
-      isPlaying = false;
-      stopViz();
-      playBtn.classList.remove('playing');
-      playBtn.querySelector('.label').textContent = 'Listen again';
-      document.querySelector('.spectrum').classList.remove('active');
-    }, totalDur * 1000 + 200);
   });
 </script>
 
