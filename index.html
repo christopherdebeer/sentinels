@@ -1088,19 +1088,27 @@
           <span class="card-link">Read the methodology</span>
         </a>
 
-        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">
+        <!-- Audio card: uses <div> (not <a>) as its root so the two
+             inline secondary links (sources.md, looping-recipe.md) are
+             legal HTML. The bottom "Read the voice model" link is the
+             actual navigation affordance. -->
+        <div class="card">
           <span class="card-num">§ 04.5 — Audio</span>
           <h3>Species &amp; <em>voices</em></h3>
           <p>The bioacoustic model behind the demo above: a UK garden cohort of eight species built from four call-type templates (continuous warble, motif-shrill, repeating phrase, trill), each grounded in citable literature. Adjacent notes on <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/sources.md">source recordings</a> and a <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/looping-recipe.md">looping recipe</a> for field-recording pilots.</p>
-          <span class="card-link">Read the voice model</span>
-        </a>
+          <a class="card-link" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">Read the voice model</a>
+        </div>
 
-        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">
+        <!-- Analysis card: same <div> treatment as Audio, same reason
+             (two inline secondary links to tuning-report and analysis
+             README would otherwise nest inside the outer anchor). -->
+        <div class="card">
           <span class="card-num">§ 04.6 — Analysis</span>
           <h3>Numbers, not <em>vibes</em></h3>
           <p>The engine rendered offline and compared to a reference dawn-chorus recording on onset density, gap distribution, averaged spectrum, and spectrogram — every metric within ~10%. Earlier <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/tuning-report.md">tuning report</a> documents the changes that got it there; <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/README.md">analysis pipeline</a> is reproducible.</p>
-          <span class="card-link">Read the validation</span>
-        </a>
+          <a class="card-link" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">Read the validation</a>
+        </div>
+
       </div>
     </section>
 
