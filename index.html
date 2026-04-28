@@ -120,14 +120,16 @@
     height: 8px;
     border-radius: 50%;
     background: var(--moss);
-    box-shadow: 0 0 0 0 rgba(90, 107, 74, 0.6);
+    box-shadow: 0 0 0 0 rgba(90, 107, 74, 0);
     animation: breathe 5.5s cubic-bezier(.4,0,.6,1) infinite;
-    transition: background 0.4s ease;
+    transition: background 0.6s ease, box-shadow 0.4s ease;
   }
 
+  /* When playing, the breathing animation stops and JS drives the dot
+     directly via inline style — pulses on each strophe with the
+     active species' tint. */
   .circuit[data-playing="true"] .circuit-dot {
-    background: var(--moss-deep);
-    animation-duration: 2.4s;
+    animation: none;
   }
 
   @keyframes breathe {
@@ -436,6 +438,40 @@
     font-style: italic;
     font-variation-settings: "opsz" 14, "SOFT" 80, "wght" 360;
     line-height: 1.5;
+  }
+
+  /* Per-strophe annotation — closing-credits style, fades in/out as
+     strophes start and end, opacity maxes around 0.55 so it remains
+     peripheral. JS sets --voice-tint and content; CSS handles fade. */
+  .listen-subtitle {
+    margin-top: 18px;
+    height: 1.4em;
+    font-size: 13px;
+    font-style: italic;
+    font-variation-settings: "opsz" 14, "SOFT" 100, "wght" 360;
+    color: var(--voice-tint, var(--ink-faint));
+    opacity: 0;
+    transition: opacity 1.2s ease, color 0.8s ease;
+    letter-spacing: 0.01em;
+    user-select: none;
+    pointer-events: none;
+  }
+  .listen-subtitle[data-active="true"] {
+    opacity: 0.55;
+  }
+  .listen-subtitle .latin {
+    opacity: 0.65;
+    margin-left: 0.4em;
+    font-size: 11px;
+  }
+  .listen-subtitle .template {
+    opacity: 0.5;
+    margin-left: 0.6em;
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: lowercase;
+    font-family: var(--mono);
   }
 
   .listen-viz {
@@ -851,15 +887,17 @@
           <!-- Bars injected by JS -->
         </div>
 
+        <div class="listen-subtitle" id="subtitle" aria-live="polite"></div>
+
         <div class="listen-sliders">
           <label class="slider-row">
             <span class="slider-name">density</span>
-            <input type="range" id="density" min="0" max="100" value="40" aria-label="Call density">
+            <input type="range" id="density" min="0" max="100" value="30" aria-label="Call density">
             <span class="slider-readout" id="densityReadout">gentle</span>
           </label>
           <label class="slider-row">
             <span class="slider-name">volume</span>
-            <input type="range" id="volume" min="0" max="100" value="45" aria-label="Volume">
+            <input type="range" id="volume" min="0" max="100" value="25" aria-label="Volume">
             <span class="slider-readout" id="volumeReadout">quiet</span>
           </label>
         </div>
@@ -1166,6 +1204,47 @@
     contactCalls: 0.10,
   };
 
+  // Per-species tints — variations on the project palette (warm browns
+  // for thrushes, sages for warblers, cool greys for tits, slightly
+  // different rust for wren). Deliberately desaturated so the dot
+  // pulse remains peripheral, not attention-grabbing.
+  const VOICE_TINTS = {
+    robin:        '#7a8b5a',  // warm sage
+    blackbird:    '#3a3128',  // deep brown-black
+    songThrush:   '#8a6a48',  // warm brown
+    greatTit:     '#5b6b76',  // cool slate
+    wren:         '#a85a3a',  // rust (project accent)
+    blueTit:      '#7090a8',  // dusky blue-grey
+    dunnock:      '#8a8170',  // warm taupe
+    contactCalls: '#6b5f51',  // ink-faint, neutral
+  };
+
+  // Display labels (English) and Latin binomials for the subtitle.
+  // Latin is restrained — it shows up small, italic, slightly faded.
+  const VOICE_LABELS = {
+    robin:        { en: 'robin',         la: 'Erithacus rubecula' },
+    blackbird:    { en: 'blackbird',     la: 'Turdus merula' },
+    songThrush:   { en: 'song thrush',   la: 'Turdus philomelos' },
+    greatTit:     { en: 'great tit',     la: 'Parus major' },
+    wren:         { en: 'wren',          la: 'Troglodytes troglodytes' },
+    blueTit:      { en: 'blue tit',      la: 'Cyanistes caeruleus' },
+    dunnock:      { en: 'dunnock',       la: 'Prunella modularis' },
+    contactCalls: { en: 'contact calls', la: '(various)' },
+  };
+
+  // Friendly names for the call-type templates, used in the subtitle's
+  // small uppercase descriptor. Short on purpose — long descriptions
+  // make the subtitle read as a label rather than a flourish.
+  const TEMPLATE_LABELS = {
+    'continuous-warble': 'warble',
+    'motif-shrill':      'motif',
+    'repeating-phrase':  'phrase',
+    'two-note-motif':    'two-note',
+    'trill-song':        'trill',
+    'descending-trill':  'descending trill',
+    'contact-call':      'call',
+  };
+
   const Sentinels = {
     ctx: null,
     master: null,
@@ -1173,8 +1252,8 @@
 
     state: {
       playing: false,
-      volume: 0.45,
-      density: 0.40,
+      volume: 0.25,
+      density: 0.30,
       // Each species can be toggled independently
       species: Object.fromEntries(Object.keys(SPECIES).map(k => [k, true])),
     },
@@ -1209,8 +1288,13 @@
     },
 
     targetGain() {
-      // Map 0..1 volume to 0..0.55 actual master gain.
-      return this.state.volume * 0.55;
+      // Map slider 0..1 directly to master gain 0..1.
+      // The system volume + speaker hardware is the outer envelope; the
+      // device's 60 dB(A) interlock is enforced on the physical product,
+      // not the demo page. (Earlier versions had a 0.55× cap as a
+      // belt-and-braces guard but it strangled the upper range to no
+      // useful end — system volume already provides headroom.)
+      return this.state.volume;
     },
 
     initVoiceState() {
@@ -1288,8 +1372,18 @@
     // Each species has its own timeline. When a species' nextStropheAt
     // arrives, we decide whether to actually emit (subject to overlap
     // avoidance and density) and either emit + reschedule, or defer.
+    //
+    // Density semantics:
+    //   0.0 → silent (no emissions)
+    //   0.5 → moderate, naturalistic cadence (each species roughly at
+    //         its literature-grounded strophe rate)
+    //   1.0 → saturated chorus — all species at their fastest plausible
+    //         rate, overlap avoidance loosened
     scheduleAhead() {
       if (!this.state.playing) return;
+      // Density 0 = silent: emit nothing
+      if (this.state.density <= 0.001) return;
+
       const now = this.ctx.currentTime;
       const horizon = now + 2.0;
 
@@ -1297,7 +1391,7 @@
       // engine — the analysis showed real chorus has stable spectral
       // character, only density meaningfully varies.
       const t = now;
-      const driftDensity = 0.7 + 0.3 * Math.sin(t * 0.013);
+      const driftDensity = 0.85 + 0.15 * Math.sin(t * 0.013);
       const driftBrightness = 0.95 + 0.05 * Math.sin(t * 0.008);
 
       // Stimulation factor: elevated for ~stimulationDecay seconds
@@ -1307,39 +1401,55 @@
         ? Math.exp(-sinceLastStrophe / 2.5) * 0.8
         : 0;
 
+      const density = this.state.density;
+      // Density-dependent overlap avoidance multiplier: at high density
+      // birds are louder/keener and don't defer as politely; at low
+      // density the politeness is preserved
+      const overlapAvoidScale = 1.0 - density * 0.4;
+
       Object.keys(SPECIES).forEach(name => {
         if (!this.state.species[name]) return;
         const profile = SPECIES[name];
         const vs = this.voiceState[name];
 
-        // If this species' next strophe is within scheduling horizon,
-        // emit it
         if (vs.nextStropheAt > horizon) return;
 
+        // Cohort weight: relative emission probability among species
+        // (e.g. robin sings more often than dunnock).
         const cohortWeight = COHORT_UK_GARDEN[name] || 0.1;
+        const cohortNorm = cohortWeight / 0.20;  // robin = 1.0, dunnock = 0.4
+
+        // Density semantics decoupled into two separate effects:
+        //
+        // 1. Cadence: density drives strophe-gap timing (handled below
+        //    when scheduling the next strophe). Higher density = shorter
+        //    gaps = more strophes per minute. This is the primary lever.
+        //
+        // 2. Cohort balance: emission probability is mostly cohort-based,
+        //    so quieter species don't sing as often as louder ones, but
+        //    with a mild density-linked scaling so very low densities
+        //    still feel sparser overall.
+        const density = this.state.density;
         const emitProb = Math.min(1.0,
-          (this.state.density + 0.1) *
+          (0.6 + 0.4 * density) *  // 0.6 → 1.0 across density range
           driftDensity *
           (1.0 + stimulation * profile.antiphonal) *
-          (cohortWeight * 4.0)
+          cohortNorm
         );
 
-        // Overlap avoidance: if any *other* species is active, defer
-        // proportional to this voice's overlapAvoid value
+        // Overlap avoidance: density-scaled
         const otherActive = Object.entries(this.voiceState)
           .some(([k, s]) => k !== name && s.activeUntil > vs.nextStropheAt);
-        if (otherActive && Math.random() < profile.overlapAvoid) {
-          // Defer to ~end of currently-active strophe + small gap
+        if (otherActive && Math.random() < profile.overlapAvoid * overlapAvoidScale) {
           const maxActive = Math.max(...Object.values(this.voiceState).map(s => s.activeUntil));
           vs.nextStropheAt = maxActive + 0.3 + Math.random() * 0.8;
+          this.emitEvent('defer', { species: name, reason: 'overlap', until: vs.nextStropheAt });
           return;
         }
 
-        // Density / cohort-weighted skip: even if it's our turn, we
-        // sometimes skip to keep overall density right
         if (Math.random() > emitProb) {
-          // Reschedule a bit later, density-dependent
           vs.nextStropheAt += 0.5 + Math.random() * 1.5;
+          this.emitEvent('skip', { species: name, emitProb, density, stimulation });
           return;
         }
 
@@ -1348,38 +1458,62 @@
         vs.activeUntil = stropheEnd;
         this.lastStropheEnd = Math.max(this.lastStropheEnd, stropheEnd);
 
-        // Schedule next strophe — log-normal-ish gap based on profile
+        // Schedule next strophe — strophe-gap timing is now
+        // density-dependent: at density 1, gaps shrink to ~40% of base;
+        // at density 0, they stretch to ~250%. This is now the primary
+        // way density affects the soundscape's cadence.
         const gapRange = profile.strophe?.gap || [3, 8];
-        const gapMean = (gapRange[0] + gapRange[1]) / 2;
-        const gapSd = (gapRange[1] - gapRange[0]) / 4;
-        // Truncated normal sample for natural-feeling cadence
+        const gapScale = 2.5 - density * 2.1;  // d=0 → 2.5×, d=1 → 0.4×
+        const scaledLo = gapRange[0] * gapScale;
+        const scaledHi = gapRange[1] * gapScale;
+        const gapMean = (scaledLo + scaledHi) / 2;
+        const gapSd = (scaledHi - scaledLo) / 4;
         const u1 = Math.random(), u2 = Math.random();
         const z = Math.sqrt(-2 * Math.log(u1 + 1e-9)) * Math.cos(2 * Math.PI * u2);
-        const gap = Math.max(gapRange[0], Math.min(gapRange[1] * 1.5, gapMean + z * gapSd));
+        const gap = Math.max(scaledLo * 0.5, Math.min(scaledHi * 1.5, gapMean + z * gapSd));
         vs.nextStropheAt = stropheEnd + gap;
       });
     },
 
     emitStrophe(name, profile, at, driftBrightness) {
       const fScale = driftBrightness;
+      let stropheEnd;
       switch (profile.template) {
         case 'continuous-warble':
-          return this.emitContinuousWarble(profile, at, fScale);
+          stropheEnd = this.emitContinuousWarble(profile, at, fScale); break;
         case 'motif-shrill':
-          return this.emitMotifShrill(profile, at, fScale);
+          stropheEnd = this.emitMotifShrill(profile, at, fScale); break;
         case 'repeating-phrase':
-          return this.emitRepeatingPhrase(profile, at, fScale);
+          stropheEnd = this.emitRepeatingPhrase(profile, at, fScale); break;
         case 'two-note-motif':
-          return this.emitTwoNoteMotif(profile, at, fScale);
+          stropheEnd = this.emitTwoNoteMotif(profile, at, fScale); break;
         case 'trill-song':
-          return this.emitTrillSong(profile, at, fScale);
+          stropheEnd = this.emitTrillSong(profile, at, fScale); break;
         case 'descending-trill':
-          return this.emitDescendingTrill(profile, at, fScale);
+          stropheEnd = this.emitDescendingTrill(profile, at, fScale); break;
         case 'contact-call':
-          return this.emitContactCall(profile, at, fScale);
+          stropheEnd = this.emitContactCall(profile, at, fScale); break;
         default:
-          return at + 1;
+          stropheEnd = at + 1;
       }
+      // Emit event with timing + species metadata. We bracket using
+      // setTimeout so listeners get start/end at sensible wall-clock
+      // points — Web Audio's at-time may be in the past or future
+      // relative to when scheduling decided to emit.
+      const wallNow = (typeof performance !== 'undefined') ? performance.now() / 1000 : 0;
+      const audioStartLead = Math.max(0, at - this.ctx.currentTime);
+      const dur = Math.max(0.05, stropheEnd - at);
+      const startEventDelay = audioStartLead * 1000;
+      const endEventDelay = (audioStartLead + dur) * 1000;
+      setTimeout(() => this.emitEvent('strophe-start', {
+        species: name, template: profile.template,
+        atAudio: at, dur,
+      }), startEventDelay);
+      setTimeout(() => this.emitEvent('strophe-end', {
+        species: name, template: profile.template,
+        atAudio: stropheEnd,
+      }), endEventDelay);
+      return stropheEnd;
     },
 
     // ───────── Helper: synthesise a tone with harmonics + envelope ─────────
@@ -1749,6 +1883,16 @@
 
     subscribe(fn) { this.subscribers.push(fn); fn(this.state); },
     notify() { this.subscribers.forEach(fn => fn(this.state)); },
+
+    // ───────── Event emitter ─────────
+    // Engine emits structured events for UI binding (corner dot pulse,
+    // subtitle, optional debug logger). Default: no listeners.
+    eventListeners: [],
+    onEvent(fn) { this.eventListeners.push(fn); },
+    emitEvent(type, data) {
+      const ev = { type, t: this.ctx ? this.ctx.currentTime : 0, ...data };
+      this.eventListeners.forEach(fn => { try { fn(ev); } catch (e) {} });
+    },
   };
 
   // Expose species map globally for UI binding
@@ -1767,10 +1911,17 @@
   const spectrum     = document.querySelector('.spectrum');
 
   const densityWords = ['silent', 'sparse', 'gentle', 'moderate', 'lively', 'busy'];
-  const volumeWords  = ['silent', 'whisper', 'quiet', 'soft', 'present', 'too loud'];
+  const volumeWords  = ['silent', 'whisper', 'quiet', 'soft', 'audible', 'present'];
 
   function readoutFor(words, value) {
-    return words[Math.min(words.length - 1, Math.floor(value * words.length))];
+    // Reserve the leftmost word ("silent") for value === 0 only; distribute
+    // the remaining labels across (0, 1]. Without this, "silent" covered
+    // the bottom 16% of the slider range, which was misleading — actual
+    // silence requires the slider be at zero.
+    if (value <= 0) return words[0];
+    const rest = words.length - 1;
+    const idx = 1 + Math.min(rest - 1, Math.floor(value * rest));
+    return words[idx];
   }
 
   Sentinels.subscribe((state) => {
@@ -1779,6 +1930,69 @@
     playBtn.classList.toggle('playing', state.playing);
     playLabel.textContent = state.playing ? 'Pause' : 'Listen';
     if (spectrum) spectrum.classList.toggle('active', state.playing);
+    // When stopped, restore dot to neutral and clear subtitle
+    if (!state.playing) {
+      const d = corner.querySelector('.circuit-dot');
+      d.style.background = '';
+      d.style.boxShadow = '';
+      d.style.transform = '';
+      const sub = document.getElementById('subtitle');
+      if (sub) sub.dataset.active = 'false';
+    }
+  });
+
+  // ───────── Engine-event-driven UI ─────────
+  // Two visual bindings for engine events:
+  //
+  // 1. Corner dot: pulses on each strophe-start, tinted to the species.
+  //    Uses inline style so it overrides the breathing animation.
+  // 2. Subtitle: fades in with the species name when a strophe starts;
+  //    fades out when it ends. Multiple concurrent strophes — last one
+  //    in wins for display.
+  const dot = corner.querySelector('.circuit-dot');
+  const subtitle = document.getElementById('subtitle');
+  let activeStrophes = new Map();  // species -> stropheEnd-time
+  let dotPulseTimer = null;
+
+  function pulseDot(tint) {
+    if (dotPulseTimer) clearTimeout(dotPulseTimer);
+    // Apply tint and bright glow halo
+    dot.style.background = tint;
+    dot.style.boxShadow = `0 0 0 8px ${tint}33`;  // 33 = ~20% alpha hex
+    dot.style.transform = 'scale(1.25)';
+    // Decay to baseline over ~600ms
+    dotPulseTimer = setTimeout(() => {
+      dot.style.boxShadow = `0 0 0 0 ${tint}00`;
+      dot.style.transform = 'scale(1)';
+    }, 600);
+  }
+
+  function setSubtitle(species, template) {
+    if (!species) {
+      subtitle.dataset.active = 'false';
+      return;
+    }
+    const lbl = (typeof VOICE_LABELS !== 'undefined' && VOICE_LABELS[species]) || { en: species, la: '' };
+    const tmpl = (typeof TEMPLATE_LABELS !== 'undefined' && TEMPLATE_LABELS[template]) || template;
+    const tint = (typeof VOICE_TINTS !== 'undefined' && VOICE_TINTS[species]) || 'var(--ink-faint)';
+    subtitle.style.setProperty('--voice-tint', tint);
+    subtitle.innerHTML = `${lbl.en}<span class="latin">${lbl.la}</span><span class="template">${tmpl}</span>`;
+    subtitle.dataset.active = 'true';
+  }
+
+  Sentinels.onEvent((ev) => {
+    if (ev.type === 'strophe-start') {
+      const tint = (typeof VOICE_TINTS !== 'undefined' && VOICE_TINTS[ev.species]) || '#5a6b4a';
+      pulseDot(tint);
+      activeStrophes.set(ev.species, ev.atAudio + ev.dur);
+      setSubtitle(ev.species, ev.template);
+    } else if (ev.type === 'strophe-end') {
+      activeStrophes.delete(ev.species);
+      // If nothing else is active, fade subtitle
+      if (activeStrophes.size === 0) {
+        setSubtitle(null);
+      }
+    }
   });
 
   corner.addEventListener('click', () => Sentinels.toggle());
@@ -1808,6 +2022,83 @@
       if (ok) chip.dataset.on = String(!isOn);
     });
   });
+
+  // ───────── Debug logger ─────────
+  // Enabled by default. Disable with ?debug=0 in the URL. Logs each
+  // engine event to the browser console with structured records, plus
+  // a small floating panel showing a rolling buffer with filter chips.
+  if (new URLSearchParams(location.search).get('debug') !== '0') {
+    console.log('[sentinels] debug logging enabled');
+    const startedAt = performance.now();
+    const buf = [];
+    const MAX_BUF = 200;
+
+    Sentinels.onEvent((ev) => {
+      const wallClock = ((performance.now() - startedAt) / 1000).toFixed(1);
+      buf.push({ ...ev, wall: wallClock });
+      if (buf.length > MAX_BUF) buf.shift();
+      // Format: [wall] type species (template) emitProb / details
+      const parts = [`[${wallClock}s]`, ev.type.padEnd(14), (ev.species || '').padEnd(13)];
+      if (ev.template) parts.push((ev.template || '').padEnd(18));
+      if (ev.dur != null) parts.push(`dur=${ev.dur.toFixed(2)}s`);
+      if (ev.emitProb != null) parts.push(`p=${ev.emitProb.toFixed(2)}`);
+      if (ev.reason) parts.push(`(${ev.reason})`);
+      console.log(parts.join(' '));
+      renderPanel();
+    });
+
+    // Floating debug panel
+    const panel = document.createElement('div');
+    panel.id = 'debugPanel';
+    panel.innerHTML = `
+      <div class="dp-head">
+        <span class="dp-title">engine events</span>
+        <span class="dp-meta" id="dpStats"></span>
+      </div>
+      <div class="dp-body" id="dpBody"></div>
+    `;
+    Object.assign(panel.style, {
+      position: 'fixed', bottom: '20px', left: '20px', zIndex: '200',
+      background: 'rgba(245,240,230,0.95)', color: 'var(--ink)',
+      backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      border: '1px solid rgba(26,22,18,0.12)', borderRadius: '4px',
+      padding: '10px 12px', fontFamily: 'var(--mono)',
+      fontSize: '10px', maxWidth: '420px', maxHeight: '320px',
+      overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+    });
+    panel.querySelector('.dp-head').style.cssText =
+      'display:flex;justify-content:space-between;border-bottom:1px solid rgba(26,22,18,0.1);padding-bottom:6px;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em;font-size:10px;';
+    panel.querySelector('.dp-meta').style.cssText = 'color:var(--moss-deep);';
+    panel.querySelector('#dpBody').style.cssText =
+      'max-height:260px;overflow-y:auto;line-height:1.5;font-size:10px;color:var(--ink-soft);';
+    document.body.appendChild(panel);
+
+    function renderPanel() {
+      const body = document.getElementById('dpBody');
+      const stats = document.getElementById('dpStats');
+      if (!body || !stats) return;
+      const last = buf.slice(-30).reverse();
+      const html = last.map(ev => {
+        const tint = (typeof VOICE_TINTS !== 'undefined' && VOICE_TINTS[ev.species]) || '#999';
+        const tcol = ev.type === 'strophe-start' ? 'var(--moss-deep)'
+                   : ev.type === 'strophe-end' ? 'var(--ink-faint)'
+                   : ev.type === 'defer' ? 'var(--rust)' : 'var(--ink-faint)';
+        return `<div style="display:grid;grid-template-columns:48px 12px 90px 110px 1fr;gap:6px;padding:2px 0;border-bottom:1px dashed rgba(0,0,0,0.05);">
+          <span style="color:var(--ink-faint);">${ev.wall}s</span>
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tint};align-self:center;"></span>
+          <span style="color:${tcol};">${ev.type}</span>
+          <span>${ev.species || ''}</span>
+          <span style="color:var(--ink-faint);font-size:9px;">${ev.template || ev.reason || (ev.emitProb != null ? `p=${ev.emitProb.toFixed(2)}` : '')}</span>
+        </div>`;
+      }).join('');
+      body.innerHTML = html;
+      // Stats: count per type
+      const counts = {};
+      buf.forEach(ev => { counts[ev.type] = (counts[ev.type] || 0) + 1; });
+      stats.textContent = Object.entries(counts).map(([k,v]) => `${k}:${v}`).join('  ');
+    }
+  }
+
 
   // Suspend audio when tab is hidden — be a good citizen.
   document.addEventListener('visibilitychange', () => {
