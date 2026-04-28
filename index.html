@@ -1204,6 +1204,31 @@
     contactCalls: 0.10,
   };
 
+  // Per-species spatial characteristics. Each individual sampled at
+  // engine start (and re-rolled periodically) gets a position drawn
+  // from these distributions:
+  //   pan ∈ [-1, +1]   −1 = full left, +1 = full right, 0 = centre
+  //   distance ∈ [0,1] 0 = close & bright, 1 = far & muffled
+  // Per-species mean reflects ecological context:
+  //   robin     — often low, cluttered undergrowth, slightly off-centre
+  //   blackbird — perched high, often visible — central, near-ish
+  //   songThrush— high perch, very prominent — central, close
+  //   greatTit  — canopy, anywhere
+  //   wren      — dense low cover, off-axis
+  //   blueTit   — canopy, mostly above
+  //   dunnock   — low cover, off-axis
+  //   contactCalls — distributed ambient, wide & far (re-rolled per emission)
+  const VOICE_SPATIAL = {
+    robin:        { panMean:  0.10, panSpread: 0.55, distMean: 0.30, distSpread: 0.20 },
+    blackbird:    { panMean: -0.10, panSpread: 0.40, distMean: 0.20, distSpread: 0.15 },
+    songThrush:   { panMean:  0.00, panSpread: 0.40, distMean: 0.15, distSpread: 0.15 },
+    greatTit:     { panMean:  0.20, panSpread: 0.65, distMean: 0.35, distSpread: 0.25 },
+    wren:         { panMean: -0.40, panSpread: 0.55, distMean: 0.25, distSpread: 0.20 },
+    blueTit:      { panMean:  0.30, panSpread: 0.60, distMean: 0.40, distSpread: 0.25 },
+    dunnock:      { panMean:  0.30, panSpread: 0.55, distMean: 0.45, distSpread: 0.20 },
+    contactCalls: { panMean:  0.00, panSpread: 0.95, distMean: 0.60, distSpread: 0.30 },
+  };
+
   // Per-species tints — variations on the project palette (warm browns
   // for thrushes, sages for warblers, cool greys for tits, slightly
   // different rust for wren). Deliberately desaturated so the dot
@@ -1299,13 +1324,41 @@
 
     initVoiceState() {
       const now = this.ctx.currentTime;
+      // Initial strophe spacing scales with density: at density 0.05 the
+      // first round of strophes spread over ~30-50s, at density 0.5 over
+      // ~5-10s. Without this, every species fires within the first 8s
+      // regardless of density — producing the "everyone going at once"
+      // startup that masks the per-species gap scaling.
+      const density = this.state.density;
+      const initSpread = 4 + (1 - density) * 60;  // d=0 → 64s, d=1 → 4s
       Object.keys(SPECIES).forEach(name => {
-        // Stagger initial start times so they don't all begin at once
         this.voiceState[name] = {
-          nextStropheAt: now + 0.5 + Math.random() * 8,
+          nextStropheAt: now + 0.5 + Math.random() * initSpread,
           activeUntil: 0,
+          ...this.samplePosition(name),
         };
       });
+    },
+
+    // Sample a (pan, distance) for a species' current "individual",
+    // along with a re-roll deadline 60-120s in the future at which point
+    // the bird is treated as having moved tree.
+    samplePosition(name) {
+      const sp = VOICE_SPATIAL[name];
+      if (!sp) return { pan: 0, distance: 0.3, repositionAt: Infinity };
+      // Truncated-normal sample: Box-Muller, clamped to [-1, +1] for pan
+      // and [0, 1] for distance.
+      const sampleAround = (mean, spread, lo, hi) => {
+        const u1 = Math.random(), u2 = Math.random();
+        const z = Math.sqrt(-2 * Math.log(u1 + 1e-9)) * Math.cos(2 * Math.PI * u2);
+        return Math.max(lo, Math.min(hi, mean + z * spread * 0.5));
+      };
+      const pan = sampleAround(sp.panMean, sp.panSpread, -1, 1);
+      const distance = sampleAround(sp.distMean, sp.distSpread, 0, 1);
+      const now = this.ctx ? this.ctx.currentTime : 0;
+      // Re-roll between 60s and 120s later
+      const repositionAt = now + 60 + Math.random() * 60;
+      return { pan, distance, repositionAt };
     },
 
     start() {
@@ -1425,13 +1478,17 @@
         //    when scheduling the next strophe). Higher density = shorter
         //    gaps = more strophes per minute. This is the primary lever.
         //
-        // 2. Cohort balance: emission probability is mostly cohort-based,
-        //    so quieter species don't sing as often as louder ones, but
-        //    with a mild density-linked scaling so very low densities
-        //    still feel sparser overall.
+        // 2. Emission probability: now uses an aggressive low-end curve
+        //    so density 0.05 actually produces a much sparser soundscape
+        //    than density 0.5. The previous flat 0.6→1.0 floor was
+        //    invisible — at 0.05 you got 60% emit prob and the gap
+        //    scaling alone wasn't enough because 8 species filling each
+        //    others' gaps kept the apparent rate ~constant.
         const density = this.state.density;
+        // Quadratic curve: density 0 → 0, 0.1 → 0.18, 0.5 → 0.7, 1 → 1.0
+        const densityCurve = density * (0.3 + 0.7 * density);
         const emitProb = Math.min(1.0,
-          (0.6 + 0.4 * density) *  // 0.6 → 1.0 across density range
+          densityCurve *
           driftDensity *
           (1.0 + stimulation * profile.antiphonal) *
           cohortNorm
@@ -1453,17 +1510,32 @@
           return;
         }
 
+        // Re-roll position if it's time. Each individual "holds" its
+        // (pan, distance) for 60-120s — when that runs out, the bird is
+        // treated as having moved to a new spot in the imagined garden.
+        if (vs.repositionAt != null && now > vs.repositionAt) {
+          Object.assign(vs, this.samplePosition(name));
+        }
+
+        // Contact-calls re-roll position every emission (multiple distant
+        // distributed callers, not one stationary bird).
+        const positionForStrophe = (name === 'contactCalls')
+          ? this.samplePosition(name)
+          : { pan: vs.pan, distance: vs.distance };
+
         // Emit a strophe of this species' template
-        const stropheEnd = this.emitStrophe(name, profile, vs.nextStropheAt, driftBrightness);
+        const stropheEnd = this.emitStrophe(name, profile, vs.nextStropheAt, driftBrightness, positionForStrophe);
         vs.activeUntil = stropheEnd;
         this.lastStropheEnd = Math.max(this.lastStropheEnd, stropheEnd);
 
         // Schedule next strophe — strophe-gap timing is now
-        // density-dependent: at density 1, gaps shrink to ~40% of base;
-        // at density 0, they stretch to ~250%. This is now the primary
-        // way density affects the soundscape's cadence.
+        // density-dependent: at density 1 gaps shrink to ~40% of base,
+        // at density 0 they stretch to ~5×. Combined with the emission
+        // probability curve and density-scaled initial spread, this
+        // gives a real "occasional calls" feel at low density and a
+        // saturated chorus at high density.
         const gapRange = profile.strophe?.gap || [3, 8];
-        const gapScale = 2.5 - density * 2.1;  // d=0 → 2.5×, d=1 → 0.4×
+        const gapScale = 5.0 - density * 4.6;  // d=0 → 5×, d=1 → 0.4×
         const scaledLo = gapRange[0] * gapScale;
         const scaledHi = gapRange[1] * gapScale;
         const gapMean = (scaledLo + scaledHi) / 2;
@@ -1475,32 +1547,75 @@
       });
     },
 
-    emitStrophe(name, profile, at, driftBrightness) {
+    emitStrophe(name, profile, at, driftBrightness, position) {
       const fScale = driftBrightness;
-      let stropheEnd;
-      switch (profile.template) {
-        case 'continuous-warble':
-          stropheEnd = this.emitContinuousWarble(profile, at, fScale); break;
-        case 'motif-shrill':
-          stropheEnd = this.emitMotifShrill(profile, at, fScale); break;
-        case 'repeating-phrase':
-          stropheEnd = this.emitRepeatingPhrase(profile, at, fScale); break;
-        case 'two-note-motif':
-          stropheEnd = this.emitTwoNoteMotif(profile, at, fScale); break;
-        case 'trill-song':
-          stropheEnd = this.emitTrillSong(profile, at, fScale); break;
-        case 'descending-trill':
-          stropheEnd = this.emitDescendingTrill(profile, at, fScale); break;
-        case 'contact-call':
-          stropheEnd = this.emitContactCall(profile, at, fScale); break;
-        default:
-          stropheEnd = at + 1;
+
+      // Build a per-strophe spatial chain. Each strophe gets its own
+      // chain so position can vary between strophes (and between voices)
+      // without one strophe's panning bleeding into another's.
+      //
+      //   synthTone envelopes → spatial gain → low-pass → panner → master
+      //
+      // - spatial gain attenuates by distance (close = louder, far = quieter)
+      // - low-pass cutoff drops with distance (air-absorption proxy)
+      // - panner places the source L/R
+      const pos = position || { pan: 0, distance: 0.3 };
+      const spatialGain = this.ctx.createGain();
+      // distance 0 → gain 1.0; distance 1 → gain 0.45
+      spatialGain.gain.value = 1.0 - 0.55 * pos.distance;
+
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      // distance 0 → cutoff 11 kHz (transparent); distance 1 → 3.2 kHz
+      lp.frequency.value = 11000 - pos.distance * 7800;
+      lp.Q.value = 0.7;
+
+      // Use StereoPannerNode (cheap, robust on speakers/headphones).
+      // PannerNode + HRTF would be more spatially convincing but
+      // assumes headphone listening; StereoPanner is the safer default.
+      const panner = (typeof this.ctx.createStereoPanner === 'function')
+        ? this.ctx.createStereoPanner()
+        : null;
+      if (panner) panner.pan.value = Math.max(-1, Math.min(1, pos.pan));
+
+      spatialGain.connect(lp);
+      if (panner) {
+        lp.connect(panner);
+        panner.connect(this.master);
+      } else {
+        lp.connect(this.master);
       }
-      // Emit event with timing + species metadata. We bracket using
-      // setTimeout so listeners get start/end at sensible wall-clock
-      // points — Web Audio's at-time may be in the past or future
-      // relative to when scheduling decided to emit.
-      const wallNow = (typeof performance !== 'undefined') ? performance.now() / 1000 : 0;
+
+      // Templates synthesise into `this.master` by default; temporarily
+      // redirect to the spatial chain's input, then restore.
+      const savedMaster = this.master;
+      this.master = spatialGain;
+
+      let stropheEnd;
+      try {
+        switch (profile.template) {
+          case 'continuous-warble':
+            stropheEnd = this.emitContinuousWarble(profile, at, fScale); break;
+          case 'motif-shrill':
+            stropheEnd = this.emitMotifShrill(profile, at, fScale); break;
+          case 'repeating-phrase':
+            stropheEnd = this.emitRepeatingPhrase(profile, at, fScale); break;
+          case 'two-note-motif':
+            stropheEnd = this.emitTwoNoteMotif(profile, at, fScale); break;
+          case 'trill-song':
+            stropheEnd = this.emitTrillSong(profile, at, fScale); break;
+          case 'descending-trill':
+            stropheEnd = this.emitDescendingTrill(profile, at, fScale); break;
+          case 'contact-call':
+            stropheEnd = this.emitContactCall(profile, at, fScale); break;
+          default:
+            stropheEnd = at + 1;
+        }
+      } finally {
+        this.master = savedMaster;
+      }
+
+      // Emit event with timing + species + spatial metadata.
       const audioStartLead = Math.max(0, at - this.ctx.currentTime);
       const dur = Math.max(0.05, stropheEnd - at);
       const startEventDelay = audioStartLead * 1000;
@@ -1508,6 +1623,7 @@
       setTimeout(() => this.emitEvent('strophe-start', {
         species: name, template: profile.template,
         atAudio: at, dur,
+        pan: pos.pan, distance: pos.distance,
       }), startEventDelay);
       setTimeout(() => this.emitEvent('strophe-end', {
         species: name, template: profile.template,
@@ -2024,10 +2140,10 @@
   });
 
   // ───────── Debug logger ─────────
-  // Disabled by default. Enable with ?debug=1 in the URL. Logs each
+  // Enabled by default. Disable with ?debug=0 in the URL. Logs each
   // engine event to the browser console with structured records, plus
   // a small floating panel showing a rolling buffer with filter chips.
-  if (new URLSearchParams(location.search).get('debug') === '1') {
+  if (new URLSearchParams(location.search).get('debug') !== '0') {
     console.log('[sentinels] debug logging enabled');
     const startedAt = performance.now();
     const buf = [];
