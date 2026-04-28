@@ -865,15 +865,19 @@
         </div>
 
         <div class="listen-voices">
-          <span class="slider-name">voices</span>
-          <button class="voice-chip" type="button" data-voice="sweep" data-on="true">sweep</button>
-          <button class="voice-chip" type="button" data-voice="trill" data-on="true">trill</button>
-          <button class="voice-chip" type="button" data-voice="pip" data-on="true">pip</button>
-          <button class="voice-chip" type="button" data-voice="warble" data-on="true">warble</button>
+          <span class="slider-name">cohort</span>
+          <button class="voice-chip" type="button" data-species="robin"        data-on="true">robin</button>
+          <button class="voice-chip" type="button" data-species="blackbird"    data-on="true">blackbird</button>
+          <button class="voice-chip" type="button" data-species="songThrush"   data-on="true">song&nbsp;thrush</button>
+          <button class="voice-chip" type="button" data-species="greatTit"     data-on="true">great&nbsp;tit</button>
+          <button class="voice-chip" type="button" data-species="wren"         data-on="true">wren</button>
+          <button class="voice-chip" type="button" data-species="blueTit"      data-on="true">blue&nbsp;tit</button>
+          <button class="voice-chip" type="button" data-species="dunnock"      data-on="true">dunnock</button>
+          <button class="voice-chip" type="button" data-species="contactCalls" data-on="true">contact&nbsp;calls</button>
         </div>
 
         <p class="listen-note">
-          The chorus drifts slowly while it plays — call rate, voice mix, and frequency centre all wander on different timescales, so the soundscape evolves without becoming erratic. Scroll on; it'll keep going. The corner indicator pauses from anywhere.
+          A <em>UK garden cohort</em> — robin, blackbird, song thrush, great tit, wren, blue tit, dunnock, plus background contact calls — modelled from acoustic-parameter literature with stateful scheduling: songs avoid overlap with each other, and one bird's song mildly elevates the chance of a neighbour responding. Toggle species above to hear them in isolation. See <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">audio/voices.md</a> for sources.
         </p>
       </div>
     </section>
@@ -1028,11 +1032,140 @@
   const bars = vizContainer.querySelectorAll('span');
 
   // ───────── Audio engine ─────────
-  // State-driven engine. Both the corner toggle and the Section 2 panel
-  // talk to the same instance. The chorus is continuous-by-default with
-  // slowly-drifting parameters: call rate, voice mix selection, and the
-  // frequency centre wander on different sine periods so the soundscape
-  // evolves without ever being erratic.
+  // Species-based procedural audio engine grounded in UK garden cohort
+  // bioacoustics literature. Each "voice" is a species with a literature-
+  // derived acoustic profile composed from call-type templates (continuous-
+  // warble, repeating-phrase, two-note-motif, trill). The scheduler is
+  // stateful: it tracks active strophes, biases against overlap, and
+  // amplifies density transiently after a strophe ends (antiphonal
+  // triggering, documented in the dawn-chorus literature).
+  //
+  // See audio/voices.md for the model and citations.
+  // See audio/analysis/tuning-report.md for the spectral tuning rationale.
+
+  // ───────── Species profiles ─────────
+  // Parameters drawn from the literature; see audio/voices.md for sources.
+  // Each profile defines a strophe-generation function and a set of
+  // numerical parameters consumed by it.
+  const SPECIES = {
+    robin: {
+      label: 'robin',
+      latin: 'Erithacus rubecula',
+      // Continuous warble — sequence of varied syllables
+      template: 'continuous-warble',
+      strophe: { dur: [2.0, 2.8], gap: [2.0, 6.0] },
+      syllable: { count: [4, 10], gap: [0.08, 0.16], dur: [0.08, 0.18] },
+      freq: { peak: 4000, range: [3200, 6500], harmonics: 3 },
+      amp: 0.16,
+      antiphonal: 0.5,
+      overlapAvoid: 0.6,
+    },
+    blackbird: {
+      label: 'blackbird',
+      latin: 'Turdus merula',
+      // Motif (low fluty melody) followed by shrill (higher modulated)
+      template: 'motif-shrill',
+      strophe: { dur: [3.0, 5.0], gap: [3.0, 10.0] },
+      motif: { dur: [1.5, 2.5], freq: [1500, 3000], harmonics: 2, syllables: [3, 6] },
+      shrill: { dur: [0.4, 0.8], freq: [4000, 6000], harmonics: 3, syllables: [3, 7] },
+      amp: 0.18,
+      antiphonal: 0.5,
+      overlapAvoid: 0.7,
+    },
+    songThrush: {
+      label: 'song thrush',
+      latin: 'Turdus philomelos',
+      // Phrase repeated 2-4× then a new phrase
+      template: 'repeating-phrase',
+      strophe: { gap: [1.5, 4.0] },
+      phrase: { dur: [0.4, 0.9], reps: [2, 4], internalGap: [0.25, 0.5] },
+      nPhrases: [3, 7],
+      freq: { range: [1500, 6000], harmonics: 3 },
+      amp: 0.15,
+      antiphonal: 0.3,
+      overlapAvoid: 0.4,
+    },
+    greatTit: {
+      label: 'great tit',
+      latin: 'Parus major',
+      // Two-note "teacher-teacher" motif, repeated 5-10×
+      template: 'two-note-motif',
+      strophe: { gap: [3.0, 6.0] },
+      phrase: { period: 0.5, dur: 0.18 },
+      noteHi: { freq: 4750, range: [4500, 5000], sweep: -0.05 },
+      noteLo: { freq: 4000, range: [3500, 4500], sweep: 0.0 },
+      nReps: [5, 10],
+      harmonics: 3,
+      amp: 0.16,
+      antiphonal: 0.6,
+      overlapAvoid: 0.5,
+    },
+    wren: {
+      label: 'wren',
+      latin: 'Troglodytes troglodytes',
+      // Rapid trill, ~5s, broad bandwidth
+      template: 'trill-song',
+      strophe: { dur: [3.5, 5.5], gap: [5.0, 15.0] },
+      trill: { rate: [12, 18], freq: [3500, 8500], dur: [0.04, 0.08] },
+      preamble: { dur: [0.3, 0.8], clicks: [3, 6] },
+      harmonics: 2,
+      amp: 0.13,
+      antiphonal: 0.5,
+      overlapAvoid: 0.9,  // wrens are famous for overlap avoidance
+    },
+    blueTit: {
+      label: 'blue tit',
+      latin: 'Cyanistes caeruleus',
+      // High-pitched descending trill
+      template: 'descending-trill',
+      strophe: { dur: [1.0, 2.0], gap: [3.0, 8.0] },
+      intro: { freq: 6500, dur: 0.15, count: [2, 3] },
+      trill: { rate: [10, 14], freqStart: 6000, freqEnd: 5000, dur: 0.06 },
+      harmonics: 2,
+      amp: 0.10,
+      antiphonal: 0.4,
+      overlapAvoid: 0.5,
+    },
+    dunnock: {
+      label: 'dunnock',
+      latin: 'Prunella modularis',
+      // Continuous warble like robin but softer, scratchier
+      template: 'continuous-warble',
+      strophe: { dur: [2.0, 3.0], gap: [3.0, 8.0] },
+      syllable: { count: [6, 12], gap: [0.05, 0.10], dur: [0.06, 0.14] },
+      freq: { peak: 5000, range: [4000, 7000], harmonics: 2 },
+      amp: 0.11,
+      antiphonal: 0.3,
+      overlapAvoid: 0.4,
+    },
+    contactCalls: {
+      // Aggregate "background" voice: contact / flight calls of various
+      // species, used to populate the soundscape with the short
+      // utterances that aren't strophic song.
+      label: 'contact calls',
+      latin: '(various)',
+      template: 'contact-call',
+      strophe: { gap: [4.0, 12.0] },
+      call: { dur: [0.05, 0.15], freq: [4000, 8000] },
+      harmonics: 2,
+      amp: 0.10,
+      antiphonal: 0.2,
+      overlapAvoid: 0.3,
+    },
+  };
+
+  // Cohort weights (sum to ~1.0; relative density of each species)
+  const COHORT_UK_GARDEN = {
+    robin:        0.20,
+    blackbird:    0.16,
+    songThrush:   0.10,
+    greatTit:     0.16,
+    wren:         0.10,
+    blueTit:      0.10,
+    dunnock:      0.08,
+    contactCalls: 0.10,
+  };
+
   const Sentinels = {
     ctx: null,
     master: null,
@@ -1040,15 +1173,25 @@
 
     state: {
       playing: false,
-      volume: 0.45,    // 0..1, mapped to actual gain inside the engine
-      density: 0.40,   // 0..1, low = sparse, high = busy
-      voices: { sweep: true, trill: true, pip: true, warble: true },
+      volume: 0.45,
+      density: 0.40,
+      // Each species can be toggled independently
+      species: Object.fromEntries(Object.keys(SPECIES).map(k => [k, true])),
     },
 
+    // Per-species scheduler state
+    voiceState: {},
+
     schedulerInterval: null,
+    bedNodes: null,
     vizFrame: null,
-    scheduledUntil: 0,
     subscribers: [],
+
+    // Stimulation tracking — antiphonal triggering. When any voice
+    // finishes a strophe, this is set to the time-stamp; other voices
+    // see elevated probability of singing for a few seconds after.
+    lastStropheEnd: 0,
+    stimulationDecay: 6.0,  // seconds for the stimulation to fade
 
     ensureContext() {
       if (!this.ctx) {
@@ -1067,24 +1210,33 @@
 
     targetGain() {
       // Map 0..1 volume to 0..0.55 actual master gain.
-      // Capped so even at 100% it stays in "quiet conversation" territory
-      // for typical playback. The user's system volume is the outer envelope.
       return this.state.volume * 0.55;
+    },
+
+    initVoiceState() {
+      const now = this.ctx.currentTime;
+      Object.keys(SPECIES).forEach(name => {
+        // Stagger initial start times so they don't all begin at once
+        this.voiceState[name] = {
+          nextStropheAt: now + 0.5 + Math.random() * 8,
+          activeUntil: 0,
+        };
+      });
     },
 
     start() {
       if (this.state.playing) return;
       this.ensureContext();
       this.state.playing = true;
+      this.initVoiceState();
 
       const now = this.ctx.currentTime;
       this.master.gain.cancelScheduledValues(now);
       this.master.gain.setValueAtTime(this.master.gain.value, now);
       this.master.gain.linearRampToValueAtTime(this.targetGain(), now + 1.4);
 
-      this.scheduledUntil = now + 0.4;
-      this.scheduleAhead();
-      this.schedulerInterval = setInterval(() => this.scheduleAhead(), 800);
+      this.schedulerInterval = setInterval(() => this.scheduleAhead(), 600);
+      this.startBed();
       this.startViz();
       this.notify();
     },
@@ -1103,6 +1255,7 @@
       this.master.gain.setValueAtTime(this.master.gain.value, now);
       this.master.gain.linearRampToValueAtTime(0, now + 1.0);
 
+      this.stopBed(now + 1.0);
       setTimeout(() => this.stopViz(), 1100);
       this.notify();
     },
@@ -1121,182 +1274,448 @@
 
     setDensity(d) { this.state.density = d; },
 
-    setVoice(type, enabled) {
-      // Refuse to disable the last enabled voice
+    setSpecies(name, enabled) {
       if (!enabled) {
-        const others = Object.entries(this.state.voices)
-          .filter(([k, v]) => k !== type && v);
+        const others = Object.entries(this.state.species)
+          .filter(([k, v]) => k !== name && v);
         if (others.length === 0) return false;
       }
-      this.state.voices[type] = enabled;
+      this.state.species[name] = enabled;
       return true;
     },
 
-    // ───────── Scheduling ─────────
+    // ───────── Stateful scheduler ─────────
+    // Each species has its own timeline. When a species' nextStropheAt
+    // arrives, we decide whether to actually emit (subject to overlap
+    // avoidance and density) and either emit + reschedule, or defer.
     scheduleAhead() {
       if (!this.state.playing) return;
-      const horizon = this.ctx.currentTime + 2.0;
+      const now = this.ctx.currentTime;
+      const horizon = now + 2.0;
 
-      // Slow parameter drift via decoupled sines.
-      // Period choices avoid common-denominator alignment so the
-      // soundscape doesn't fall into any obvious pattern.
-      const t = this.ctx.currentTime;
-      const driftRate = 0.5 + 0.4 * Math.sin(t * 0.013);  // ~8min period
-      const driftFreq = 0.5 + 0.5 * Math.sin(t * 0.008);  // ~13min period
-      const driftMix  = 0.5 + 0.5 * Math.sin(t * 0.021);  // ~5min period
+      // Slow drift on density and brightness, mild compared to the old
+      // engine — the analysis showed real chorus has stable spectral
+      // character, only density meaningfully varies.
+      const t = now;
+      const driftDensity = 0.7 + 0.3 * Math.sin(t * 0.013);
+      const driftBrightness = 0.95 + 0.05 * Math.sin(t * 0.008);
 
-      while (this.scheduledUntil < horizon) {
-        this.scheduleOneCall(this.scheduledUntil, driftFreq, driftMix);
+      // Stimulation factor: elevated for ~stimulationDecay seconds
+      // after any strophe ended. Antiphonal triggering.
+      const sinceLastStrophe = now - this.lastStropheEnd;
+      const stimulation = sinceLastStrophe < this.stimulationDecay
+        ? Math.exp(-sinceLastStrophe / 2.5) * 0.8
+        : 0;
 
-        // Inter-call gap. density 0 → mean ~3.0s, density 1 → mean ~0.4s.
-        // driftRate adds slow ebb and flow.
-        const baseGap = 0.4 + (1 - this.state.density) * (1 - driftRate * 0.25) * 3.0;
-        // Heavy-tailed: most gaps short, occasional long stretches of quiet.
-        const u = Math.random();
-        const gap = baseGap * (0.3 + Math.pow(u, 2.5) * 2.5);
-        this.scheduledUntil += gap;
+      Object.keys(SPECIES).forEach(name => {
+        if (!this.state.species[name]) return;
+        const profile = SPECIES[name];
+        const vs = this.voiceState[name];
+
+        // If this species' next strophe is within scheduling horizon,
+        // emit it
+        if (vs.nextStropheAt > horizon) return;
+
+        const cohortWeight = COHORT_UK_GARDEN[name] || 0.1;
+        const emitProb = Math.min(1.0,
+          (this.state.density + 0.1) *
+          driftDensity *
+          (1.0 + stimulation * profile.antiphonal) *
+          (cohortWeight * 4.0)
+        );
+
+        // Overlap avoidance: if any *other* species is active, defer
+        // proportional to this voice's overlapAvoid value
+        const otherActive = Object.entries(this.voiceState)
+          .some(([k, s]) => k !== name && s.activeUntil > vs.nextStropheAt);
+        if (otherActive && Math.random() < profile.overlapAvoid) {
+          // Defer to ~end of currently-active strophe + small gap
+          const maxActive = Math.max(...Object.values(this.voiceState).map(s => s.activeUntil));
+          vs.nextStropheAt = maxActive + 0.3 + Math.random() * 0.8;
+          return;
+        }
+
+        // Density / cohort-weighted skip: even if it's our turn, we
+        // sometimes skip to keep overall density right
+        if (Math.random() > emitProb) {
+          // Reschedule a bit later, density-dependent
+          vs.nextStropheAt += 0.5 + Math.random() * 1.5;
+          return;
+        }
+
+        // Emit a strophe of this species' template
+        const stropheEnd = this.emitStrophe(name, profile, vs.nextStropheAt, driftBrightness);
+        vs.activeUntil = stropheEnd;
+        this.lastStropheEnd = Math.max(this.lastStropheEnd, stropheEnd);
+
+        // Schedule next strophe — log-normal-ish gap based on profile
+        const gapRange = profile.strophe?.gap || [3, 8];
+        const gapMean = (gapRange[0] + gapRange[1]) / 2;
+        const gapSd = (gapRange[1] - gapRange[0]) / 4;
+        // Truncated normal sample for natural-feeling cadence
+        const u1 = Math.random(), u2 = Math.random();
+        const z = Math.sqrt(-2 * Math.log(u1 + 1e-9)) * Math.cos(2 * Math.PI * u2);
+        const gap = Math.max(gapRange[0], Math.min(gapRange[1] * 1.5, gapMean + z * gapSd));
+        vs.nextStropheAt = stropheEnd + gap;
+      });
+    },
+
+    emitStrophe(name, profile, at, driftBrightness) {
+      const fScale = driftBrightness;
+      switch (profile.template) {
+        case 'continuous-warble':
+          return this.emitContinuousWarble(profile, at, fScale);
+        case 'motif-shrill':
+          return this.emitMotifShrill(profile, at, fScale);
+        case 'repeating-phrase':
+          return this.emitRepeatingPhrase(profile, at, fScale);
+        case 'two-note-motif':
+          return this.emitTwoNoteMotif(profile, at, fScale);
+        case 'trill-song':
+          return this.emitTrillSong(profile, at, fScale);
+        case 'descending-trill':
+          return this.emitDescendingTrill(profile, at, fScale);
+        case 'contact-call':
+          return this.emitContactCall(profile, at, fScale);
+        default:
+          return at + 1;
       }
     },
 
-    scheduleOneCall(at, driftFreq, driftMix) {
-      const enabled = Object.entries(this.state.voices)
-        .filter(([_, v]) => v).map(([k]) => k);
-      if (enabled.length === 0) return;
+    // ───────── Helper: synthesise a tone with harmonics + envelope ─────────
+    //
+    // The atomic operation. Frequency curve is given as a function
+    // of time-from-start; a small bank of partials shares the curve
+    // (multiplied by harmonic number) so the timbre stays coherent.
+    synthTone(at, dur, freqCurve, amp, harmonics, envProfile) {
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0, at);
+      // Default envelope: short attack, plateau, decay
+      const ep = envProfile || { attack: 0.01, decayStart: 0.85, plateau: amp };
+      env.gain.linearRampToValueAtTime(ep.plateau, at + ep.attack);
+      env.gain.linearRampToValueAtTime(ep.plateau, at + dur * ep.decayStart);
+      env.gain.exponentialRampToValueAtTime(0.0008, at + dur);
+      env.connect(this.master);
 
-      // Voice selection weights drift slowly via driftMix
-      const baseWeights = {
-        sweep: 3.0,
-        trill: 1.0 + driftMix * 0.5,
-        pip: 1.5,
-        warble: 0.8 + (1 - driftMix) * 0.6
-      };
-      const totalWeight = enabled.reduce((s, t) => s + baseWeights[t], 0);
-      let r = Math.random() * totalWeight;
-      let type = enabled[0];
-      for (const t of enabled) {
-        r -= baseWeights[t];
-        if (r <= 0) { type = t; break; }
+      const partialGains = [1.0, 0.40, 0.20, 0.10];  // -8, -14, -20 dB
+      for (let h = 1; h <= harmonics; h++) {
+        const osc = this.ctx.createOscillator();
+        const pg = this.ctx.createGain();
+        osc.type = 'sine';
+        pg.gain.value = partialGains[h - 1] || 0.05;
+
+        // Apply frequency curve. freqCurve is { points: [[t, f], ...] }
+        if (freqCurve.points) {
+          freqCurve.points.forEach(([tFrac, f], i) => {
+            const tAbs = at + tFrac * dur;
+            const fScaled = Math.max(50, f * h);
+            if (fScaled > 11000) return;
+            if (i === 0) {
+              osc.frequency.setValueAtTime(fScaled, tAbs);
+            } else {
+              osc.frequency.exponentialRampToValueAtTime(fScaled, tAbs);
+            }
+          });
+        } else {
+          osc.frequency.setValueAtTime(Math.max(50, freqCurve.value * h), at);
+        }
+        if (Math.max(...((freqCurve.points || [[0, freqCurve.value]]).map(p => p[1]))) * h > 11000) continue;
+        osc.connect(pg);
+        pg.connect(env);
+        osc.start(at);
+        osc.stop(at + dur + 0.05);
+      }
+    },
+
+    // ───────── Templates ─────────
+
+    // Continuous warble: sequence of varied syllables, each a short
+    // tone with mild frequency modulation. Robin, dunnock.
+    emitContinuousWarble(profile, at, fScale) {
+      const stropheDur = profile.strophe.dur[0] +
+        Math.random() * (profile.strophe.dur[1] - profile.strophe.dur[0]);
+      const sylCountRange = profile.syllable.count;
+      const sylCount = Math.floor(
+        sylCountRange[0] + Math.random() * (sylCountRange[1] - sylCountRange[0])
+      );
+      const sylDur = stropheDur / sylCount * 0.7;
+      let t = at;
+      const stropheEnd = at + stropheDur;
+      for (let i = 0; i < sylCount && t < stropheEnd; i++) {
+        const sylDurActual = profile.syllable.dur[0] +
+          Math.random() * (profile.syllable.dur[1] - profile.syllable.dur[0]);
+        // Each syllable: small frequency excursion within the species' range
+        const fBase = profile.freq.peak * fScale;
+        const fRange = profile.freq.range;
+        const fStart = (fRange[0] + Math.random() * (fRange[1] - fRange[0])) * fScale;
+        const fEnd = (fRange[0] + Math.random() * (fRange[1] - fRange[0])) * fScale;
+        const fMid = (fStart + fEnd) / 2 + (Math.random() - 0.5) * 400;
+
+        this.synthTone(t, sylDurActual,
+          { points: [[0, fStart], [0.4, fMid], [1, fEnd]] },
+          profile.amp, profile.freq.harmonics);
+        t += sylDurActual + profile.syllable.gap[0] +
+          Math.random() * (profile.syllable.gap[1] - profile.syllable.gap[0]);
+      }
+      return stropheEnd;
+    },
+
+    // Motif (low fluty melody) followed by shrill (higher modulated).
+    // Blackbird strophe: motif → silent gap → shrill.
+    emitMotifShrill(profile, at, fScale) {
+      const motifDur = profile.motif.dur[0] +
+        Math.random() * (profile.motif.dur[1] - profile.motif.dur[0]);
+      const motifSyls = Math.floor(profile.motif.syllables[0] +
+        Math.random() * (profile.motif.syllables[1] - profile.motif.syllables[0]));
+
+      // Motif: lyrical sequence of ~5 fluty syllables in low band
+      let t = at;
+      const motifEnd = at + motifDur;
+      for (let i = 0; i < motifSyls; i++) {
+        const sylDur = motifDur / motifSyls * 0.65;
+        const fStart = (profile.motif.freq[0] + Math.random() * (profile.motif.freq[1] - profile.motif.freq[0])) * fScale;
+        const fEnd = (profile.motif.freq[0] + Math.random() * (profile.motif.freq[1] - profile.motif.freq[0])) * fScale;
+        // Slow upward or downward glide on each syllable — the fluty character
+        this.synthTone(t, sylDur,
+          { points: [[0, fStart], [1, fEnd]] },
+          profile.amp * 1.1, profile.motif.harmonics,
+          { attack: 0.04, decayStart: 0.7, plateau: profile.amp * 1.1 });
+        t = at + ((i + 1) / motifSyls) * motifDur;
       }
 
-      // Frequency centre drifts between roughly 2.4kHz and 4.8kHz
-      const fCenter = 2400 + driftFreq * 2400;
+      // Brief silence before shrill (~0.2-0.5s)
+      t = motifEnd + 0.2 + Math.random() * 0.3;
 
-      switch (type) {
-        case 'sweep':  this.chirpSweep(at, fCenter); break;
-        case 'trill':  this.chirpTrill(at, fCenter); break;
-        case 'pip':    this.chirpPip(at, fCenter); break;
-        case 'warble': this.chirpWarble(at, fCenter); break;
+      // Shrill: rapid modulated higher-frequency phrase
+      const shrillDur = profile.shrill.dur[0] +
+        Math.random() * (profile.shrill.dur[1] - profile.shrill.dur[0]);
+      const shrillSyls = Math.floor(profile.shrill.syllables[0] +
+        Math.random() * (profile.shrill.syllables[1] - profile.shrill.syllables[0]));
+      const shrillSylDur = shrillDur / shrillSyls * 0.7;
+      for (let i = 0; i < shrillSyls; i++) {
+        const tStart = t + (i / shrillSyls) * shrillDur;
+        const f = (profile.shrill.freq[0] + Math.random() * (profile.shrill.freq[1] - profile.shrill.freq[0])) * fScale;
+        const fEnd = f * (0.85 + Math.random() * 0.3);
+        this.synthTone(tStart, shrillSylDur,
+          { points: [[0, f], [1, fEnd]] },
+          profile.amp * 0.85, profile.shrill.harmonics);
       }
+      return t + shrillDur;
+    },
 
-      // Pip clusters
-      if (type === 'pip') {
-        if (Math.random() > 0.5) this.chirpPip(at + 0.12, fCenter);
-        if (Math.random() > 0.7) this.chirpPip(at + 0.24, fCenter);
+    // Repeating phrase: a phrase shape, repeated 2-4×, then move on.
+    // Song thrush.
+    emitRepeatingPhrase(profile, at, fScale) {
+      const nPhrases = Math.floor(profile.nPhrases[0] +
+        Math.random() * (profile.nPhrases[1] - profile.nPhrases[0]));
+      let t = at;
+      for (let p = 0; p < nPhrases; p++) {
+        // Generate this phrase's signature: 2-4 syllables with characteristic shape
+        const reps = profile.phrase.reps[0] +
+          Math.floor(Math.random() * (profile.phrase.reps[1] - profile.phrase.reps[0] + 1));
+        const phraseDur = profile.phrase.dur[0] +
+          Math.random() * (profile.phrase.dur[1] - profile.phrase.dur[0]);
+        // Phrase signature: a small set of syllables with frequencies chosen
+        // once and repeated identically reps times — that's the diagnostic
+        // feature of song thrush
+        const sigSyls = 2 + Math.floor(Math.random() * 3);  // 2-4 syllables per phrase
+        const phraseSig = [];
+        for (let s = 0; s < sigSyls; s++) {
+          phraseSig.push({
+            tFrac: s / sigSyls,
+            durFrac: 0.7 / sigSyls,
+            fStart: (profile.freq.range[0] + Math.random() * (profile.freq.range[1] - profile.freq.range[0])) * fScale,
+            fEnd: (profile.freq.range[0] + Math.random() * (profile.freq.range[1] - profile.freq.range[0])) * fScale,
+          });
+        }
+        // Play the phrase reps times
+        for (let r = 0; r < reps; r++) {
+          phraseSig.forEach(syl => {
+            const tStart = t + syl.tFrac * phraseDur;
+            const dur = syl.durFrac * phraseDur;
+            this.synthTone(tStart, dur,
+              { points: [[0, syl.fStart], [1, syl.fEnd]] },
+              profile.amp, profile.freq.harmonics);
+          });
+          t += phraseDur + profile.phrase.internalGap[0] +
+            Math.random() * (profile.phrase.internalGap[1] - profile.phrase.internalGap[0]);
+        }
+        // Brief pause before next phrase signature
+        t += 0.15 + Math.random() * 0.25;
       }
+      return t;
     },
 
-    // ───────── Voices ─────────
-    chirpSweep(at, fCenter) {
-      const span = 400 + Math.random() * 1000;
-      const dur = 0.10 + Math.random() * 0.18;
-      const upFirst = Math.random() > 0.5;
-      const fStart = upFirst ? fCenter - span : fCenter + span;
-      const fEnd = upFirst ? fCenter + span * 0.4 : fCenter - span * 0.4;
-
-      const osc = this.ctx.createOscillator();
-      const env = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(Math.max(50, fStart), at);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(50, fCenter), at + dur * 0.35);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(50, fEnd), at + dur);
-
-      env.gain.setValueAtTime(0, at);
-      env.gain.linearRampToValueAtTime(0.18, at + 0.01);
-      env.gain.exponentialRampToValueAtTime(0.001, at + dur);
-
-      osc.connect(env);
-      env.connect(this.master);
-      osc.start(at);
-      osc.stop(at + dur + 0.05);
+    // Two-note "teacher-teacher". Great tit.
+    emitTwoNoteMotif(profile, at, fScale) {
+      const nReps = Math.floor(profile.nReps[0] +
+        Math.random() * (profile.nReps[1] - profile.nReps[0]));
+      // Per-strophe frequency choice within range
+      const fHi = (profile.noteHi.range[0] +
+        Math.random() * (profile.noteHi.range[1] - profile.noteHi.range[0])) * fScale;
+      const fLo = (profile.noteLo.range[0] +
+        Math.random() * (profile.noteLo.range[1] - profile.noteLo.range[0])) * fScale;
+      const phrase = profile.phrase;
+      let t = at;
+      for (let r = 0; r < nReps; r++) {
+        // High note (slightly downward inflected per literature)
+        const fHiEnd = fHi * (1 + profile.noteHi.sweep);
+        this.synthTone(t, phrase.dur,
+          { points: [[0, fHi], [1, fHiEnd]] },
+          profile.amp, profile.harmonics);
+        // Low note
+        this.synthTone(t + phrase.dur * 1.2, phrase.dur,
+          { points: [[0, fLo], [1, fLo]] },
+          profile.amp, profile.harmonics);
+        t += phrase.period;
+      }
+      return t;
     },
 
-    chirpTrill(at, fCenter) {
-      const freq = fCenter + (Math.random() - 0.5) * 800;
-      const modRate = 22 + Math.random() * 16;
-      const dur = 0.25 + Math.random() * 0.30;
-
-      const osc = this.ctx.createOscillator();
-      const lfo = this.ctx.createOscillator();
-      const env = this.ctx.createGain();
-      const lfoGain = this.ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      lfo.type = 'sine';
-      lfo.frequency.value = modRate;
-      lfoGain.gain.value = 0.07;
-
-      env.gain.setValueAtTime(0, at);
-      env.gain.linearRampToValueAtTime(0.08, at + 0.015);
-      env.gain.linearRampToValueAtTime(0.08, at + dur * 0.85);
-      env.gain.linearRampToValueAtTime(0.0001, at + dur);
-
-      lfo.connect(lfoGain);
-      lfoGain.connect(env.gain);
-      osc.connect(env);
-      env.connect(this.master);
-      osc.start(at); lfo.start(at);
-      osc.stop(at + dur + 0.05); lfo.stop(at + dur + 0.05);
+    // Trill song. Wren (also bluetit's descending version, separate template).
+    emitTrillSong(profile, at, fScale) {
+      // Optional preamble: short clicks
+      let t = at;
+      if (profile.preamble) {
+        const nClicks = Math.floor(profile.preamble.clicks[0] +
+          Math.random() * (profile.preamble.clicks[1] - profile.preamble.clicks[0]));
+        for (let c = 0; c < nClicks; c++) {
+          const f = profile.trill.freq[0] + Math.random() * (profile.trill.freq[1] - profile.trill.freq[0]);
+          this.synthTone(t, 0.04,
+            { points: [[0, f * fScale], [1, f * 0.9 * fScale]] },
+            profile.amp * 0.9, profile.harmonics);
+          t += 0.06 + Math.random() * 0.04;
+        }
+      }
+      // Main trill body
+      const stropheEnd = at + profile.strophe.dur[0] +
+        Math.random() * (profile.strophe.dur[1] - profile.strophe.dur[0]);
+      const trillRate = profile.trill.rate[0] +
+        Math.random() * (profile.trill.rate[1] - profile.trill.rate[0]);
+      const sylPeriod = 1 / trillRate;
+      const sylDur = profile.trill.dur[0] +
+        Math.random() * (profile.trill.dur[1] - profile.trill.dur[0]);
+      // Trill modulation pattern: vary frequency in a wave so it doesn't
+      // sound monotonously identical
+      let i = 0;
+      while (t < stropheEnd) {
+        const wave = Math.sin(i * 0.4) * 0.5 + Math.sin(i * 0.13) * 0.5;
+        const fBase = (profile.trill.freq[0] + profile.trill.freq[1]) / 2;
+        const fSpread = (profile.trill.freq[1] - profile.trill.freq[0]) / 2;
+        const fStart = (fBase + wave * fSpread * 0.6 - 200) * fScale;
+        const fEnd = (fBase + wave * fSpread * 0.6 + 200) * fScale;
+        this.synthTone(t, sylDur,
+          { points: [[0, fStart], [1, fEnd]] },
+          profile.amp, profile.harmonics);
+        t += sylPeriod;
+        i++;
+      }
+      return stropheEnd;
     },
 
-    chirpPip(at, fCenter) {
-      const freq = fCenter + (Math.random() - 0.3) * 1400;
-      const dur = 0.04 + Math.random() * 0.06;
-
-      const osc = this.ctx.createOscillator();
-      const env = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(Math.max(800, freq), at);
-
-      env.gain.setValueAtTime(0, at);
-      env.gain.linearRampToValueAtTime(0.13, at + 0.008);
-      env.gain.exponentialRampToValueAtTime(0.001, at + dur);
-
-      osc.connect(env);
-      env.connect(this.master);
-      osc.start(at);
-      osc.stop(at + dur + 0.05);
+    // Descending-trill. Blue tit's "tsee-tsee-tsi-hi-hi-hi".
+    emitDescendingTrill(profile, at, fScale) {
+      let t = at;
+      // Intro: 2-3 high "tsee" notes
+      const introCount = profile.intro.count[0] +
+        Math.floor(Math.random() * (profile.intro.count[1] - profile.intro.count[0] + 1));
+      for (let i = 0; i < introCount; i++) {
+        this.synthTone(t, profile.intro.dur,
+          { points: [[0, profile.intro.freq * fScale], [1, profile.intro.freq * 0.95 * fScale]] },
+          profile.amp, profile.harmonics);
+        t += profile.intro.dur * 1.4;
+      }
+      // Brief pause
+      t += 0.1;
+      // Descending trill
+      const stropheEnd = at + profile.strophe.dur[0] +
+        Math.random() * (profile.strophe.dur[1] - profile.strophe.dur[0]);
+      const trillRate = profile.trill.rate[0] +
+        Math.random() * (profile.trill.rate[1] - profile.trill.rate[0]);
+      const sylPeriod = 1 / trillRate;
+      const totalTrill = stropheEnd - t;
+      const nNotes = Math.floor(totalTrill * trillRate);
+      for (let i = 0; i < nNotes && t < stropheEnd; i++) {
+        const frac = i / Math.max(1, nNotes - 1);
+        const f = (profile.trill.freqStart - frac * (profile.trill.freqStart - profile.trill.freqEnd)) * fScale;
+        this.synthTone(t, profile.trill.dur,
+          { points: [[0, f], [1, f * 0.95]] },
+          profile.amp, profile.harmonics);
+        t += sylPeriod;
+      }
+      return stropheEnd;
     },
 
-    chirpWarble(at, fCenter) {
-      const baseFreq = fCenter + (Math.random() - 0.5) * 600;
-      const dur = 0.30 + Math.random() * 0.40;
-
-      const osc = this.ctx.createOscillator();
-      const lfo = this.ctx.createOscillator();
-      const lfoGain = this.ctx.createGain();
-      const env = this.ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.value = baseFreq;
-      lfo.type = 'sine';
-      lfo.frequency.value = 6 + Math.random() * 4;
-      lfoGain.gain.value = baseFreq * 0.05;
-
-      env.gain.setValueAtTime(0, at);
-      env.gain.linearRampToValueAtTime(0.11, at + 0.02);
-      env.gain.linearRampToValueAtTime(0.11, at + dur * 0.8);
-      env.gain.exponentialRampToValueAtTime(0.001, at + dur);
-
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.frequency);
-      osc.connect(env);
-      env.connect(this.master);
-      osc.start(at); lfo.start(at);
-      osc.stop(at + dur + 0.05); lfo.stop(at + dur + 0.05);
+    // Single short contact call (background voice).
+    emitContactCall(profile, at, fScale) {
+      const dur = profile.call.dur[0] +
+        Math.random() * (profile.call.dur[1] - profile.call.dur[0]);
+      const f = (profile.call.freq[0] + Math.random() * (profile.call.freq[1] - profile.call.freq[0])) * fScale;
+      this.synthTone(at, dur,
+        { points: [[0, f], [1, f * 0.92]] },
+        profile.amp, profile.harmonics);
+      // Sometimes a quick pair
+      if (Math.random() > 0.5) {
+        const f2 = (profile.call.freq[0] + Math.random() * (profile.call.freq[1] - profile.call.freq[0])) * fScale;
+        this.synthTone(at + dur + 0.1, dur,
+          { points: [[0, f2], [1, f2 * 0.92]] },
+          profile.amp, profile.harmonics);
+        return at + dur + 0.1 + dur;
+      }
+      return at + dur;
     },
 
-    // ───────── Visualiser ─────────
+    // ───────── Continuous bed (unchanged) ─────────
+    startBed() {
+      if (this.bedNodes) return;
+      const sr = this.ctx.sampleRate;
+      const bufLen = Math.floor(sr * 3);
+      const buf = this.ctx.createBuffer(1, bufLen, sr);
+      const data = buf.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const w = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + w * 0.0555179;
+        b1 = 0.99332 * b1 + w * 0.0750759;
+        b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856;
+        b4 = 0.55000 * b4 + w * 0.5329522;
+        b5 = -0.7616 * b5 - w * 0.0168980;
+        const pink = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362;
+        b6 = w * 0.115926;
+        data[i] = pink * 0.11;
+      }
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 2200;
+      bp.Q.value = 1.4;
+      const bedGain = this.ctx.createGain();
+      bedGain.gain.value = 0;
+      const targetGain = 0.0056;
+      const now = this.ctx.currentTime;
+      bedGain.gain.linearRampToValueAtTime(targetGain, now + 2.0);
+      src.connect(bp);
+      bp.connect(bedGain);
+      bedGain.connect(this.master);
+      src.start();
+      this.bedNodes = { src, bedGain };
+    },
+
+    stopBed(stopAt) {
+      if (!this.bedNodes) return;
+      const { src, bedGain } = this.bedNodes;
+      const now = stopAt || this.ctx.currentTime;
+      bedGain.gain.cancelScheduledValues(now);
+      bedGain.gain.setValueAtTime(bedGain.gain.value, now);
+      bedGain.gain.linearRampToValueAtTime(0, now + 0.8);
+      try { src.stop(now + 1.0); } catch (e) {}
+      this.bedNodes = null;
+    },
+
+    // ───────── Visualiser (unchanged) ─────────
     startViz() {
       if (this.vizFrame) return;
       const buf = new Uint8Array(this.analyser.frequencyBinCount);
@@ -1328,10 +1747,13 @@
       bars.forEach(b => { b.style.height = '2px'; b.style.opacity = 0.4; });
     },
 
-    // ───────── Subscribers ─────────
     subscribe(fn) { this.subscribers.push(fn); fn(this.state); },
     notify() { this.subscribers.forEach(fn => fn(this.state)); },
   };
+
+  // Expose species map globally for UI binding
+  window.SENTINELS_SPECIES = SPECIES;
+
 
   // ───────── UI bindings ─────────
   const corner       = document.getElementById('ambientToggle');
@@ -1381,7 +1803,8 @@
   document.querySelectorAll('.voice-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       const isOn = chip.dataset.on === 'true';
-      const ok = Sentinels.setVoice(chip.dataset.voice, !isOn);
+      const speciesKey = chip.dataset.species || chip.dataset.voice;
+      const ok = Sentinels.setSpecies(speciesKey, !isOn);
       if (ok) chip.dataset.on = String(!isOn);
     });
   });
