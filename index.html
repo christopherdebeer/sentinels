@@ -2024,10 +2024,10 @@
   });
 
   // ───────── Debug logger ─────────
-  // Enabled by default. Disable with ?debug=0 in the URL. Logs each
+  // Disabled by default. Enable with ?debug=1 in the URL. Logs each
   // engine event to the browser console with structured records, plus
   // a small floating panel showing a rolling buffer with filter chips.
-  if (new URLSearchParams(location.search).get('debug') !== '0') {
+  if (new URLSearchParams(location.search).get('debug') === '1') {
     console.log('[sentinels] debug logging enabled');
     const startedAt = performance.now();
     const buf = [];
