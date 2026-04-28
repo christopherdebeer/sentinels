@@ -293,44 +293,6 @@
     font-variation-settings: "opsz" 36, "SOFT" 100, "wght" 360;
   }
 
-  /* Decorative spectrum in hero */
-  .spectrum {
-    position: absolute;
-    right: max(24px, 4vw);
-    bottom: clamp(40px, 8vh, 90px);
-    display: flex;
-    align-items: flex-end;
-    gap: 4px;
-    height: 60px;
-    opacity: 0.5;
-  }
-  .spectrum span {
-    display: block;
-    width: 3px;
-    background: var(--moss);
-    border-radius: 1px;
-    transform-origin: bottom;
-    animation: barIdle 4s ease-in-out infinite;
-  }
-  .spectrum.active span { animation: barActive 0.8s ease-in-out infinite; }
-  .spectrum span:nth-child(1) { height: 10%; animation-delay: 0s; }
-  .spectrum span:nth-child(2) { height: 30%; animation-delay: 0.1s; }
-  .spectrum span:nth-child(3) { height: 60%; animation-delay: 0.2s; }
-  .spectrum span:nth-child(4) { height: 80%; animation-delay: 0.3s; }
-  .spectrum span:nth-child(5) { height: 100%; animation-delay: 0.4s; }
-  .spectrum span:nth-child(6) { height: 70%; animation-delay: 0.5s; }
-  .spectrum span:nth-child(7) { height: 50%; animation-delay: 0.6s; }
-  .spectrum span:nth-child(8) { height: 30%; animation-delay: 0.7s; }
-  .spectrum span:nth-child(9) { height: 15%; animation-delay: 0.8s; }
-
-  @keyframes barIdle {
-    0%, 100% { transform: scaleY(1); opacity: 0.6; }
-    50%      { transform: scaleY(0.7); opacity: 0.8; }
-  }
-  @keyframes barActive {
-    0%, 100% { transform: scaleY(0.4); opacity: 0.7; }
-    50%      { transform: scaleY(1.3); opacity: 1; }
-  }
 
   /* ───────── Section structure ───────── */
   section {
@@ -654,15 +616,32 @@
     border-color: var(--moss-deep);
   }
 
-  /* ───────── Card grid for sections ───────── */
+  /* ───────── Card grid for sections ─────────
+     Explicit breakpoints give a clean 3×2 at ≥900px, 2×3 at ≥600px,
+     1×6 on mobile. `auto-fit, minmax(260px, 1fr)` was tempting but
+     produced a lop-sided layout with six cards on a ~1100px wrap
+     (four per row then two hanging, stretched to half-width). */
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: 1fr;
     gap: 1px;
     background: var(--rule);
     border: 1px solid var(--rule);
     margin-top: 16px;
   }
+  @media (min-width: 600px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 900px) {
+    .cards { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* A card can be either an `<a>` (whole-card link) or a `<div>`
+     (non-anchor container for cards whose body contains its own
+     inline links — HTML5 forbids nesting <a> inside <a>, so those
+     cards use a <div> outer and expose a dedicated <a class="card-link">
+     at the bottom). Both variants share the same visual treatment. */
+
 
   .card {
     background: var(--paper);
@@ -725,6 +704,42 @@
     font-size: 14px;
   }
   .card:hover .card-link::after { transform: translateX(4px); }
+
+  /* ───────── Inline figure plate ─────────
+     A naturalist-monograph-style figure: 1px rule top & bottom, image
+     centred at its intrinsic proportions, short mono caption underneath.
+     Used sparingly — one figure on the page, more would tip it from
+     editorial into dashboard. */
+  .figure {
+    margin: clamp(32px, 5vh, 56px) 0;
+    padding: clamp(16px, 2.5vh, 28px) 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* The matplotlib defaults produce a white plot background — a 1px
+       rule keeps it from floating on the cream paper. */
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+  }
+  .figure figcaption {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    line-height: 1.5;
+  }
+  .figure figcaption a {
+    color: var(--moss-deep);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+  .figure figcaption a:hover { border-bottom-color: var(--moss); }
 
   /* ───────── Pull quote ───────── */
   .pull {
@@ -895,11 +910,6 @@
       <p class="lede">
         A device that listens to the soundscape and gently maintains it — emitting calibrated bird-band signals at the volume of <em>quiet conversation</em>, so the brainstem can stand down.
       </p>
-
-      <div class="spectrum" aria-hidden="true">
-        <span></span><span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span><span></span>
-      </div>
     </header>
 
     <p class="ornament">— ♪ —</p>
@@ -951,13 +961,13 @@
         <div class="listen-sliders">
           <label class="slider-row">
             <span class="slider-name">density</span>
-            <input type="range" id="density" min="0" max="100" value="30" aria-label="Call density">
-            <span class="slider-readout" id="densityReadout">gentle</span>
+            <input type="range" id="density" min="0" max="100" value="10" aria-label="Call density">
+            <span class="slider-readout" id="densityReadout">sparse</span>
           </label>
           <label class="slider-row">
             <span class="slider-name">volume</span>
-            <input type="range" id="volume" min="0" max="100" value="25" aria-label="Volume">
-            <span class="slider-readout" id="volumeReadout">quiet</span>
+            <input type="range" id="volume" min="0" max="100" value="10" aria-label="Volume">
+            <span class="slider-readout" id="volumeReadout">whisper</span>
           </label>
         </div>
 
@@ -977,6 +987,30 @@
           A <em>UK garden cohort</em> — robin, blackbird, song thrush, great tit, wren, blue tit, dunnock, plus background contact calls — modelled from acoustic-parameter literature with stateful scheduling: songs avoid overlap with each other, and one bird's song mildly elevates the chance of a neighbour responding. Toggle species above to hear them in isolation. See <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">audio/voices.md</a> for sources.
         </p>
       </div>
+    </section>
+
+    <p class="ornament">— ♪ —</p>
+
+    <!-- ═══ Validation ═══
+         One plate from the analysis pipeline: the engine rendered offline
+         and compared against a reference dawn-chorus recording on four
+         metrics. The figure is the payoff for the listen demo above —
+         "the thing you just heard is within 10% of a real recording on
+         every measurable axis we could check" — and a hook into the
+         fuller audio/analysis/ work for readers who want the numbers. -->
+    <section id="validation">
+      <p class="section-num reveal">§ 02½ — Does it actually sound like a chorus?</p>
+      <h2 class="reveal delay-1">Quantitative, not <em>aesthetic</em>.</h2>
+      <div class="prose reveal delay-1">
+        <p>The engine above is procedural, not a recording — so the honest question is whether it lands anywhere near a real dawn chorus. We rendered sixty seconds of the engine to an offline audio context and ran the same analysis pipeline over it as over a CC0 reference recording (squashy555, Burton-on-Trent, May 2021). Every measurable temporal and spectral metric matches within roughly ten percent.</p>
+      </div>
+
+      <figure class="figure reveal delay-2">
+        <img src="audio/analysis/figures/validation.png" alt="Four-panel comparison of the engine's rendered output against a reference dawn-chorus recording: onset density over time, inter-call gap distribution with log-normal fits, averaged spectrum across the bird band, and spectrograms.">
+        <figcaption>
+          Engine rendered offline (top / left) vs. reference recording (bottom / right) — onset density, gap distribution, averaged spectrum, spectrogram. Full method and numbers in <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">audio/analysis/validation.md</a>.
+        </figcaption>
+      </figure>
     </section>
 
     <p class="ornament">— ♪ —</p>
@@ -1012,12 +1046,17 @@
 
     <p class="ornament">— ♪ —</p>
 
-    <!-- ═══ Cards: device / research / experiments ═══ -->
+    <!-- ═══ Cards: hardware / firmware / research / methodology / audio / analysis ═══
+         Six cards form the spine of the project's public documentation.
+         The `.cards` grid uses `auto-fit, minmax(260px, 1fr)`, so on a
+         ~1100px wrap this lays out as 3×2 on desktop, 2×3 on tablet,
+         1×6 on mobile — no layout-level changes needed to accommodate
+         the expansion from four to six. -->
     <section id="explore">
       <p class="section-num reveal">§ 04 — What's in the project</p>
       <h2 class="reveal delay-1">The vision, taken <em>seriously</em>.</h2>
       <div class="prose reveal delay-1">
-        <p>Three documents form the spine of the work: the hardware design, the research it's grounded in, and the experimental methodology that would either support the hypothesis or falsify it. This is a personal-research project, not a product — and that's reflected in what it commits to.</p>
+        <p>Six documents form the spine of the work: the hardware design, the firmware that drives it, the research it's grounded in, the experimental methodology that would either support or falsify the hypothesis, the bioacoustic model behind the audio engine, and the analysis confirming that engine matches a real chorus. This is a personal-research project, not a product — and that's reflected in what it commits to.</p>
       </div>
 
       <div class="cards reveal delay-2">
@@ -1047,6 +1086,20 @@
           <h3>How we'd <em>know</em></h3>
           <p>A four-week n=1 self-experiment with sealed schedules, a small pre-registered crossover pilot with a sham control, and a list of results that would falsify the project. Anything that calls itself a wellness device and ships without a falsification plan is a placebo.</p>
           <span class="card-link">Read the methodology</span>
+        </a>
+
+        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">
+          <span class="card-num">§ 04.5 — Audio</span>
+          <h3>Species &amp; <em>voices</em></h3>
+          <p>The bioacoustic model behind the demo above: a UK garden cohort of eight species built from four call-type templates (continuous warble, motif-shrill, repeating phrase, trill), each grounded in citable literature. Adjacent notes on <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/sources.md">source recordings</a> and a <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/looping-recipe.md">looping recipe</a> for field-recording pilots.</p>
+          <span class="card-link">Read the voice model</span>
+        </a>
+
+        <a class="card" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">
+          <span class="card-num">§ 04.6 — Analysis</span>
+          <h3>Numbers, not <em>vibes</em></h3>
+          <p>The engine rendered offline and compared to a reference dawn-chorus recording on onset density, gap distribution, averaged spectrum, and spectrogram — every metric within ~10%. Earlier <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/tuning-report.md">tuning report</a> documents the changes that got it there; <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/README.md">analysis pipeline</a> is reproducible.</p>
+          <span class="card-link">Read the validation</span>
         </a>
       </div>
     </section>
@@ -1079,7 +1132,7 @@
           <h4>Repository</h4>
           <ul>
             <li><a href="https://github.com/christopherdebeer/sentinels">github.com/christopherdebeer/sentinels</a></li>
-            <li><a href="https://github.com/christopherdebeer/sentinels/issues">open issues</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/README.md">readme</a></li>
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/LICENSE">license</a></li>
           </ul>
         </div>
@@ -1090,6 +1143,8 @@
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/firmware.md">firmware</a></li>
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/research.md">research</a></li>
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/experiments.md">experiments</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">audio model</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">validation</a></li>
           </ul>
         </div>
         <div>
@@ -1336,8 +1391,13 @@
 
     state: {
       playing: false,
-      volume: 0.25,
-      density: 0.30,
+      // Defaults match the HTML slider initial values (both at 10/100,
+      // which resolves to "whisper" / "sparse" via readoutFor). Keep
+      // these in sync with the slider `value` attributes — a user who
+      // hits Listen before touching a slider should get the soundscape
+      // the labels promise.
+      volume: 0.10,
+      density: 0.10,
       // Each species can be toggled independently
       species: Object.fromEntries(Object.keys(SPECIES).map(k => [k, true])),
     },
@@ -2083,7 +2143,6 @@
   const densityRead  = document.getElementById('densityReadout');
   const volumeEl     = document.getElementById('volume');
   const volumeRead   = document.getElementById('volumeReadout');
-  const spectrum     = document.querySelector('.spectrum');
 
   const densityWords = ['silent', 'sparse', 'gentle', 'moderate', 'lively', 'busy'];
   const volumeWords  = ['silent', 'whisper', 'quiet', 'soft', 'audible', 'present'];
@@ -2104,7 +2163,6 @@
     cornerLabel.textContent = state.playing ? 'sentinels on' : 'ambient mode';
     playBtn.classList.toggle('playing', state.playing);
     playLabel.textContent = state.playing ? 'Pause' : 'Listen';
-    if (spectrum) spectrum.classList.toggle('active', state.playing);
     document.body.classList.toggle('engine-playing', state.playing);
     // When stopped, restore dot to neutral and clear subtitle
     if (!state.playing) {
