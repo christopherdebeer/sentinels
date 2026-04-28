@@ -26,7 +26,15 @@ async () => {
   Sentinels.master.gain.value = 0.5;
   Sentinels.master.connect(oc.destination);
   Sentinels.state.playing = true;
+  // Match the reference recording's chorus intensity. The engine's
+  // density slider is 0.10 by default (whisper + sparse for the on-page
+  // demo), but the squashy555 reference is a full dawn chorus — a fair
+  // comparison needs the engine at mid-high density. We use 0.60 which
+  // the scheduler treats as "moderate-to-lively", close to what the
+  // reference represents.
+  Sentinels.state.density = 0.60;
   Sentinels.initVoiceState();
+
   let now = 0;
   Object.values(Sentinels.voiceState).forEach(vs => {
     vs.nextStropheAt = 0.5 + Math.random() * 8;
