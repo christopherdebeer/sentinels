@@ -1,0 +1,40 @@
+{
+  "real": {
+    "label": "REAL squashy555",
+    "duration_s": 531.3078004535147,
+    "peak_freq_hz": 3816.76025390625,
+    "band_minus10db_hz": [
+      1695.73974609375,
+      5318.701171875
+    ],
+    "n_onsets": 1207,
+    "onset_rate_per_min": 136.30516988115664,
+    "gap_mean_s": 0.4397928723728297,
+    "gap_median_s": 0.37151927437645327,
+    "gap_p90_s": 0.6965986394557859,
+    "gap_lognormal_mu": -0.9303317906948355,
+    "gap_lognormal_sigma": 0.4496314582923508,
+    "density_cv": 0.08369494618011451,
+    "centroid_mean_hz": 4213.839982057394,
+    "centroid_std_hz": 769.9297145594088
+  },
+  "new_engine": {
+    "label": "NEW ENGINE",
+    "duration_s": 60.0,
+    "peak_freq_hz": 3612.19482421875,
+    "band_minus10db_hz": [
+      2034.8876953125,
+      7219.00634765625
+    ],
+    "n_onsets": 135,
+    "onset_rate_per_min": 135.0,
+    "gap_mean_s": 0.4300890107286696,
+    "gap_median_s": 0.32507936507936286,
+    "gap_p90_s": 0.7430385487528355,
+    "gap_lognormal_mu": -1.0037276216103699,
+    "gap_lognormal_sigma": 0.5134711226331229,
+    "density_cv": 0.0425523159002817,
+    "centroid_mean_hz": 3641.0548381890726,
+    "centroid_std_hz": 2302.6703647769946
+  }
+}

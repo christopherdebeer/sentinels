@@ -1,0 +1,54 @@
+{
+  "source": {
+    "url": "https://freesound.org/people/squashy555/sounds/573080/",
+    "title": "Dawn Chorus Birdsong",
+    "recordist": "squashy555",
+    "license": "CC0",
+    "location": "Burton-on-Trent, Staffordshire, UK",
+    "date": "2021-05-29 04:00",
+    "format_analysed": "Freesound HQ MP3 preview (44.1 kHz stereo, 8:51)"
+  },
+  "real": {
+    "duration_s": 531.3078004535147,
+    "spectral_band_minus_10db_hz": [
+      1873.388671875,
+      7708.88671875
+    ],
+    "peak_frequency_hz": 4258.19091796875,
+    "n_call_onsets": 177,
+    "call_rate_per_minute_mean": 19.988413478844016,
+    "gap_mean_s": 2.99563801278087,
+    "gap_median_s": 2.345215419501124,
+    "gap_std_s": 2.9068100221566793,
+    "gap_max_s": 17.879365079365087,
+    "gap_lognormal_mu": 0.6702402895301122,
+    "gap_lognormal_sigma": 0.9817540823287013,
+    "density_coefficient_of_variation": 0.5135341494082413,
+    "density_min_per_min": 0.0,
+    "density_max_per_min": 42.0,
+    "spectral_centroid_mean_hz": 4360.76493272169,
+    "spectral_centroid_cv_smoothed": 0.024174608928413437
+  },
+  "synthetic_engine": {
+    "duration_s": 300,
+    "n_call_onsets": 177,
+    "call_rate_per_minute_mean": 35.4,
+    "gap_mean_s": 1.6848888662015797,
+    "gap_median_s": 1.1035564326320007,
+    "frequency_centre_range_hz": [
+      2400,
+      4800
+    ],
+    "voice_types": [
+      "sweep",
+      "trill",
+      "pip",
+      "warble"
+    ]
+  },
+  "deltas": {
+    "rate_ratio_engine_to_real": 1.7710260015117156,
+    "gap_mean_ratio": 0.5624474182170918,
+    "peak_freq_distance_hz": 658.19091796875
+  }
+}
