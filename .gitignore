@@ -38,4 +38,3 @@ venv/
 # Local config
 .env
 *.local
-.tmp/

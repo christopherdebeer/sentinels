@@ -5,8 +5,7 @@ import scipy.signal as signal
 import json
 from pathlib import Path
 
-ANALYSIS = Path(__file__).resolve().parent
-
+ANALYSIS = Path("/home/claude/sentinels/audio/analysis")
 
 def analyse(path, label):
     y, sr = librosa.load(str(path), sr=22050, mono=True)
