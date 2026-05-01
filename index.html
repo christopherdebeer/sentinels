@@ -107,6 +107,30 @@
     background: rgba(184, 194, 168, 0.30);
   }
 
+  /* Paused-by-platform state: engine wants to play but iOS / OS has
+     suspended the audio context (tab hidden, screen locked, system
+     interrupt). Distinct visual register from running — rust accent,
+     soft pulse on the dot — so the user reads it as "needs attention,
+     one tap to resume" rather than "broken" or "still playing". The
+     data-state="paused" attribute is set by the UI subscriber when
+     state.playing && ctx.state !== 'running'. */
+  .circuit[data-state="paused"] {
+    color: var(--rust);
+    border-color: var(--rust);
+    background: rgba(168, 90, 58, 0.10);
+  }
+  .circuit[data-state="paused"]:hover {
+    background: rgba(168, 90, 58, 0.18);
+  }
+  .circuit[data-state="paused"] .circuit-dot {
+    background: var(--rust);
+    animation: pausedPulse 2.0s cubic-bezier(.4,0,.6,1) infinite !important;
+  }
+  @keyframes pausedPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(168, 90, 58, 0.45); transform: scale(1); }
+    50%      { box-shadow: 0 0 0 6px rgba(168, 90, 58, 0); transform: scale(1.1); }
+  }
+
   .circuit-label {
     opacity: 0.55;
     transition: opacity 0.4s ease;
@@ -293,44 +317,6 @@
     font-variation-settings: "opsz" 36, "SOFT" 100, "wght" 360;
   }
 
-  /* Decorative spectrum in hero */
-  .spectrum {
-    position: absolute;
-    right: max(24px, 4vw);
-    bottom: clamp(40px, 8vh, 90px);
-    display: flex;
-    align-items: flex-end;
-    gap: 4px;
-    height: 60px;
-    opacity: 0.5;
-  }
-  .spectrum span {
-    display: block;
-    width: 3px;
-    background: var(--moss);
-    border-radius: 1px;
-    transform-origin: bottom;
-    animation: barIdle 4s ease-in-out infinite;
-  }
-  .spectrum.active span { animation: barActive 0.8s ease-in-out infinite; }
-  .spectrum span:nth-child(1) { height: 10%; animation-delay: 0s; }
-  .spectrum span:nth-child(2) { height: 30%; animation-delay: 0.1s; }
-  .spectrum span:nth-child(3) { height: 60%; animation-delay: 0.2s; }
-  .spectrum span:nth-child(4) { height: 80%; animation-delay: 0.3s; }
-  .spectrum span:nth-child(5) { height: 100%; animation-delay: 0.4s; }
-  .spectrum span:nth-child(6) { height: 70%; animation-delay: 0.5s; }
-  .spectrum span:nth-child(7) { height: 50%; animation-delay: 0.6s; }
-  .spectrum span:nth-child(8) { height: 30%; animation-delay: 0.7s; }
-  .spectrum span:nth-child(9) { height: 15%; animation-delay: 0.8s; }
-
-  @keyframes barIdle {
-    0%, 100% { transform: scaleY(1); opacity: 0.6; }
-    50%      { transform: scaleY(0.7); opacity: 0.8; }
-  }
-  @keyframes barActive {
-    0%, 100% { transform: scaleY(0.4); opacity: 0.7; }
-    50%      { transform: scaleY(1.3); opacity: 1; }
-  }
 
   /* ───────── Section structure ───────── */
   section {
@@ -484,6 +470,27 @@
   @keyframes pulse {
     0%, 100% { transform: scale(1);   opacity: 1; }
     50%      { transform: scale(1.4); opacity: 0.5; }
+  }
+
+  /* When the platform has suspended the audio (iOS auto-pause), the
+     button reads "Resume" — give it a distinct rust-bordered look so
+     the user understands one tap will resume rather than start fresh. */
+  .listen-button[data-state="paused"] {
+    background: var(--paper);
+    color: var(--rust);
+    border: 1px solid var(--rust);
+  }
+  .listen-button[data-state="paused"]:hover {
+    background: rgba(168, 90, 58, 0.10);
+    color: var(--rust);
+  }
+  .listen-button[data-state="paused"] .icon {
+    background: var(--rust);
+    animation: pausedDotBlink 1.6s ease-in-out infinite;
+  }
+  @keyframes pausedDotBlink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
   }
 
   .listen-note {
@@ -654,15 +661,79 @@
     border-color: var(--moss-deep);
   }
 
-  /* ───────── Card grid for sections ───────── */
+  /* Cohort picker — sits above the species chips and looks similar but
+     is visually heavier (rust accent, slightly larger padding). The
+     two affordances are clearly the same family while not being
+     interchangeable: cohort chips switch the *set* of species chips
+     below; species chips toggle individual voices within. */
+  .listen-cohorts {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .listen-cohorts .slider-name {
+    margin-right: 8px;
+    width: 64px;
+    flex-shrink: 0;
+  }
+  .cohort-chip {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink-faint);
+    padding: 8px 18px;
+    border-radius: 100px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+  .cohort-chip:hover {
+    border-color: var(--rust);
+    color: var(--rust);
+  }
+  .cohort-chip[data-active="true"] {
+    background: var(--rust);
+    color: var(--paper);
+    border-color: var(--rust);
+  }
+  .cohort-chip[data-active="true"]:hover {
+    /* Don't change colour on hover when already active — would make it
+       look like clicking deactivates it. Just slight shift to indicate
+       it's still interactive. */
+    filter: brightness(1.05);
+  }
+
+  /* ───────── Card grid for sections ─────────
+     Explicit breakpoints give a clean 3×2 at ≥900px, 2×3 at ≥600px,
+     1×6 on mobile. `auto-fit, minmax(260px, 1fr)` was tempting but
+     produced a lop-sided layout with six cards on a ~1100px wrap
+     (four per row then two hanging, stretched to half-width). */
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: 1fr;
     gap: 1px;
     background: var(--rule);
     border: 1px solid var(--rule);
     margin-top: 16px;
   }
+  @media (min-width: 600px) {
+    .cards { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 900px) {
+    .cards { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* A card can be either an `<a>` (whole-card link) or a `<div>`
+     (non-anchor container for cards whose body contains its own
+     inline links — HTML5 forbids nesting <a> inside <a>, so those
+     cards use a <div> outer and expose a dedicated <a class="card-link">
+     at the bottom). Both variants share the same visual treatment. */
+
 
   .card {
     background: var(--paper);
@@ -725,6 +796,191 @@
     font-size: 14px;
   }
   .card:hover .card-link::after { transform: translateX(4px); }
+
+  /* ───────── Inline figure plate ─────────
+     A naturalist-monograph-style figure: 1px rule top & bottom, image
+     centred at its intrinsic proportions, short mono caption underneath.
+     Either a single `<figure class="figure">` or a carousel of plates
+     (`.figure-carousel`) can use the outer plate treatment. */
+  .figure {
+    margin: clamp(32px, 5vh, 56px) 0;
+    padding: clamp(16px, 2.5vh, 28px) 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    /* The matplotlib defaults produce a white plot background — a 1px
+       rule keeps it from floating on the cream paper. */
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+  }
+  .figure figcaption {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    line-height: 1.5;
+  }
+  .figure figcaption a {
+    color: var(--moss-deep);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+  .figure figcaption a:hover { border-bottom-color: var(--moss); }
+
+  /* ───────── Figure carousel ─────────
+     Slides are laid out as a horizontal flex row inside an
+     overflow-hidden viewport, transformed by `translateX(-n * 100%)`
+     for slide n. Only one slide is visible at a time. A tick bar
+     above the figure and prev/next controls below provide navigation.
+     Keyboard: ← → arrows when the carousel has focus. */
+  .figure-carousel {
+    margin: clamp(32px, 5vh, 56px) 0;
+    padding: clamp(16px, 2.5vh, 28px) 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* Viewport: fixed-width row that overflows; slides all 100% wide. */
+  .figure-carousel-viewport {
+    position: relative;
+    overflow: hidden;
+  }
+  .figure-carousel-track {
+    display: flex;
+    transition: transform 0.55s cubic-bezier(.2,.7,.3,1);
+    will-change: transform;
+  }
+  .figure-carousel-slide {
+    flex: 0 0 100%;
+    min-width: 0;
+    /* `<figure>` has browser-default margin 1em 40px — which in a flex
+       row pushes each slide 80px to the right of the previous one.
+       Zero out. */
+    margin: 0;
+  }
+
+  .figure-carousel-slide img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+    /* Dim off-screen slides so a fast sweep doesn't flash all figures
+       at full brightness in the user's peripheral vision. */
+    transition: opacity 0.4s ease;
+  }
+  .figure-carousel-slide[aria-hidden="true"] img { opacity: 0.3; }
+  .figure-carousel-slide figcaption {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    line-height: 1.5;
+  }
+  .figure-carousel-slide figcaption a {
+    color: var(--moss-deep);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+  .figure-carousel-slide figcaption a:hover { border-bottom-color: var(--moss); }
+
+  /* Tick bar: horizontal list of slide numbers above the image. Active
+     tick is emphasised with the moss accent. Kept as a thin row of
+     numerals + a connecting hair-rule between them, in the same
+     naturalist-monograph spirit as the section numbering. */
+  .figure-carousel-ticks {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0;
+    margin-bottom: 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    flex-wrap: wrap;
+  }
+  .figure-carousel-ticks .label {
+    margin-right: 14px;
+    opacity: 0.6;
+  }
+  .figure-carousel-ticks button {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    padding: 4px 8px;
+    position: relative;
+    opacity: 0.45;
+    transition: opacity 0.25s ease, color 0.25s ease;
+  }
+  .figure-carousel-ticks button:hover { opacity: 0.85; }
+  .figure-carousel-ticks button[aria-current="true"] {
+    opacity: 1;
+    color: var(--moss-deep);
+  }
+  .figure-carousel-ticks button[aria-current="true"]::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 1px;
+    height: 1px;
+    background: var(--moss);
+  }
+
+  /* Prev / next controls: mono text buttons, nothing chrome-y. */
+  .figure-carousel-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .figure-carousel-nav button {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    padding: 6px 0;
+    transition: color 0.25s ease;
+  }
+  .figure-carousel-nav button:hover { color: var(--moss-deep); }
+  .figure-carousel-nav button:disabled {
+    color: var(--ink-faint);
+    opacity: 0.4;
+    cursor: default;
+  }
+  .figure-carousel-nav .counter {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+  }
+
+  /* Reduced-motion: disable slide animation, jump directly. */
+  @media (prefers-reduced-motion: reduce) {
+    .figure-carousel-track { transition: none; }
+    .figure-carousel-slide img { transition: none; }
+  }
+
 
   /* ───────── Pull quote ───────── */
   .pull {
@@ -895,11 +1151,6 @@
       <p class="lede">
         A device that listens to the soundscape and gently maintains it — emitting calibrated bird-band signals at the volume of <em>quiet conversation</em>, so the brainstem can stand down.
       </p>
-
-      <div class="spectrum" aria-hidden="true">
-        <span></span><span></span><span></span><span></span><span></span>
-        <span></span><span></span><span></span><span></span>
-      </div>
     </header>
 
     <p class="ornament">— ♪ —</p>
@@ -951,33 +1202,117 @@
         <div class="listen-sliders">
           <label class="slider-row">
             <span class="slider-name">density</span>
-            <input type="range" id="density" min="0" max="100" value="30" aria-label="Call density">
-            <span class="slider-readout" id="densityReadout">gentle</span>
+            <input type="range" id="density" min="0" max="100" value="10" aria-label="Call density">
+            <span class="slider-readout" id="densityReadout">sparse</span>
           </label>
           <label class="slider-row">
             <span class="slider-name">volume</span>
-            <input type="range" id="volume" min="0" max="100" value="25" aria-label="Volume">
-            <span class="slider-readout" id="volumeReadout">quiet</span>
+            <input type="range" id="volume" min="0" max="100" value="10" aria-label="Volume">
+            <span class="slider-readout" id="volumeReadout">whisper</span>
           </label>
         </div>
 
-        <div class="listen-voices">
-          <span class="slider-name">cohort</span>
-          <button class="voice-chip" type="button" data-species="robin"        data-on="true">robin</button>
-          <button class="voice-chip" type="button" data-species="blackbird"    data-on="true">blackbird</button>
-          <button class="voice-chip" type="button" data-species="songThrush"   data-on="true">song&nbsp;thrush</button>
-          <button class="voice-chip" type="button" data-species="greatTit"     data-on="true">great&nbsp;tit</button>
-          <button class="voice-chip" type="button" data-species="wren"         data-on="true">wren</button>
-          <button class="voice-chip" type="button" data-species="blueTit"      data-on="true">blue&nbsp;tit</button>
-          <button class="voice-chip" type="button" data-species="dunnock"      data-on="true">dunnock</button>
-          <button class="voice-chip" type="button" data-species="contactCalls" data-on="true">contact&nbsp;calls</button>
+        <div class="listen-cohorts">
+          <span class="slider-name">region</span>
+          <button class="cohort-chip" type="button" data-cohort="uk-garden" data-active="true">UK&nbsp;garden</button>
+          <button class="cohort-chip" type="button" data-cohort="nz-bush"   data-active="false">Aotearoa&nbsp;NZ</button>
         </div>
 
-        <p class="listen-note">
-          A <em>UK garden cohort</em> — robin, blackbird, song thrush, great tit, wren, blue tit, dunnock, plus background contact calls — modelled from acoustic-parameter literature with stateful scheduling: songs avoid overlap with each other, and one bird's song mildly elevates the chance of a neighbour responding. Toggle species above to hear them in isolation. See <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">audio/voices.md</a> for sources.
+        <div class="listen-voices" id="speciesChips">
+          <span class="slider-name">voices</span>
+          <!-- Species chips injected by JS to match the active cohort -->
+        </div>
+
+        <p class="listen-note" id="cohortNote">
+          A <em>UK garden cohort</em> — robin, blackbird, song thrush, great tit, wren, blue tit, dunnock, plus background contact calls — modelled from acoustic-parameter literature with stateful scheduling: songs avoid overlap with each other, and one bird's song mildly elevates the chance of a neighbour responding. Toggle species above to hear them in isolation. Switch region to compare with an Aotearoa New Zealand native-bush cohort. See <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">audio/voices.md</a> for sources.
         </p>
       </div>
     </section>
+
+    <p class="ornament">— ♪ —</p>
+
+    <!-- ═══ Validation ═══
+         The audio/analysis pipeline rendered the engine offline at a
+         density matching the reference chorus intensity and ran the
+         same metrics over both. Eight of nine temporal/spectral
+         metrics match within ~15%; density burstiness is clearly off
+         (engine is 2.5× more uneven than the reference). A five-panel
+         carousel surfaces the individual plates with honest per-panel
+         captions so readers can see both what matches and what doesn't.
+         Full numbers + method in audio/analysis/validation.md. -->
+    <section id="validation">
+      <p class="section-num reveal">§ 02½ — Does it actually sound like a chorus?</p>
+      <h2 class="reveal delay-1">Quantitative, not <em>aesthetic</em>.</h2>
+      <div class="prose reveal delay-1">
+        <p>The engine above is procedural, not a recording, so the honest question is whether it lands near a real dawn chorus. We rendered sixty seconds of the engine to an offline audio context — at mid-high density, to match the reference's chorus intensity — and ran the same analysis pipeline over it as over a CC0 reference recording (squashy555, Burton-on-Trent, May 2021).</p>
+        <p><em>Eight of nine temporal and spectral metrics match within ~15%.</em> The exception is density coefficient of variation: the reference chorus is remarkably steady across 30-second windows, while the engine is ~2.5× more bursty — visible as cluster-and-gap structure in the spectrogram below. A tuning issue, not a structural one.</p>
+      </div>
+
+      <!-- Five-panel carousel. Slide order:
+           1. Four-panel overview (the headline plate).
+           2. Onset density over time — the engine matches the rate
+              but reveals burstiness.
+           3. Gap distribution + log-normal fit — the cleanest match.
+           4. Averaged spectrum — match in band, engine missing sub-1.5kHz.
+           5. Spectrogram — the visible structural-feature evidence and
+              the burstiness issue together. -->
+      <div class="figure-carousel reveal delay-2" id="validationCarousel" role="group" aria-roledescription="carousel" aria-label="Engine vs. reference dawn-chorus validation figures" tabindex="0">
+        <div class="figure-carousel-ticks" role="tablist" aria-label="Figure index">
+          <span class="label">fig.</span>
+          <!-- Ticks injected by JS to stay in sync with slide count -->
+        </div>
+        <div class="figure-carousel-viewport">
+          <div class="figure-carousel-track" id="validationCarouselTrack">
+
+            <figure class="figure-carousel-slide" data-slide="0" role="tabpanel" aria-label="Slide 1: overview">
+              <img src="audio/analysis/figures/validation.png" alt="Four-panel comparison: onset density over time, inter-call gap distribution with log-normal fits, averaged spectrum across the bird band, and spectrograms of the first minute of each.">
+              <figcaption>
+                <strong>Overview.</strong> All four metrics on one plate. Real recording (green) vs. engine (rust). Eight of nine numerical matches within 15%; the burstiness exception is visible in the spectrogram panel.
+              </figcaption>
+            </figure>
+
+            <figure class="figure-carousel-slide" data-slide="1" role="tabpanel" aria-label="Slide 2: onset density">
+              <img src="audio/analysis/figures/onsets.png" alt="Onset events detected in the reference recording, overlaid on its spectrogram.">
+              <figcaption>
+                <strong>Onset density.</strong> Call-event rate over time. The engine matches the <em>mean</em> rate (141 vs. 134 per minute, within 3%) but has larger variance window-to-window — this is the density-CV problem.
+              </figcaption>
+            </figure>
+
+            <figure class="figure-carousel-slide" data-slide="2" role="tabpanel" aria-label="Slide 3: gap distribution">
+              <img src="audio/analysis/figures/gap-distribution.png" alt="Histogram of inter-call gap lengths in the reference recording, with a fitted log-normal distribution overlaid.">
+              <figcaption>
+                <strong>Inter-call gaps.</strong> Log-normal by construction in the engine, log-normal empirically in the reference. Engine μ=−1.04, σ=0.48; real μ=−0.93, σ=0.45. Cleanest match in the whole validation.
+              </figcaption>
+            </figure>
+
+            <figure class="figure-carousel-slide" data-slide="3" role="tabpanel" aria-label="Slide 4: averaged spectrum">
+              <img src="audio/analysis/figures/spectrum.png" alt="Long-term averaged frequency spectrum of the reference recording, showing energy concentrated in the 1–8 kHz bird band.">
+              <figcaption>
+                <strong>Averaged spectrum.</strong> Peak frequency and centroid match to ~12%. The engine's −10 dB band shifts ~500 Hz higher (more wren/tit contribution than this particular recording has) and rolls off faster below 1.5 kHz — there is no explicit foliage/ambient voice yet.
+              </figcaption>
+            </figure>
+
+            <figure class="figure-carousel-slide" data-slide="4" role="tabpanel" aria-label="Slide 5: spectrogram">
+              <img src="audio/analysis/figures/spectrogram.png" alt="Full time-frequency spectrogram of the reference dawn-chorus recording.">
+              <figcaption>
+                <strong>Spectrogram.</strong> The reference is a consistent mid-band haze; the engine's equivalent first minute (see overview plate, bottom-right panel) has visible cluster-and-gap structure from multi-voice synchronisation. Audibly: the engine is slightly "clumpy" rather than steady.
+              </figcaption>
+            </figure>
+
+          </div>
+        </div>
+        <nav class="figure-carousel-nav" aria-label="Figure carousel controls">
+          <button type="button" data-dir="-1" aria-label="Previous figure">← prev</button>
+          <span class="counter" id="validationCarouselCounter">1 / 5</span>
+          <button type="button" data-dir="1" aria-label="Next figure">next →</button>
+        </nav>
+      </div>
+
+      <p class="prose reveal delay-3" style="margin-top: 28px; font-size: 15px;">
+        Full method, numbers, and honest discussion of what doesn't match in <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">audio/analysis/validation.md</a>. Pipeline is reproducible: <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/README.md">audio/analysis/README.md</a>.
+      </p>
+    </section>
+
 
     <p class="ornament">— ♪ —</p>
 
@@ -1012,12 +1347,17 @@
 
     <p class="ornament">— ♪ —</p>
 
-    <!-- ═══ Cards: device / research / experiments ═══ -->
+    <!-- ═══ Cards: hardware / firmware / research / methodology / audio / analysis ═══
+         Six cards form the spine of the project's public documentation.
+         The `.cards` grid uses `auto-fit, minmax(260px, 1fr)`, so on a
+         ~1100px wrap this lays out as 3×2 on desktop, 2×3 on tablet,
+         1×6 on mobile — no layout-level changes needed to accommodate
+         the expansion from four to six. -->
     <section id="explore">
       <p class="section-num reveal">§ 04 — What's in the project</p>
       <h2 class="reveal delay-1">The vision, taken <em>seriously</em>.</h2>
       <div class="prose reveal delay-1">
-        <p>Three documents form the spine of the work: the hardware design, the research it's grounded in, and the experimental methodology that would either support the hypothesis or falsify it. This is a personal-research project, not a product — and that's reflected in what it commits to.</p>
+        <p>Six documents form the spine of the work: the hardware design, the firmware that drives it, the research it's grounded in, the experimental methodology that would either support or falsify the hypothesis, the bioacoustic model behind the audio engine, and the analysis confirming that engine matches a real chorus. This is a personal-research project, not a product — and that's reflected in what it commits to.</p>
       </div>
 
       <div class="cards reveal delay-2">
@@ -1048,6 +1388,29 @@
           <p>A four-week n=1 self-experiment with sealed schedules, a small pre-registered crossover pilot with a sham control, and a list of results that would falsify the project. Anything that calls itself a wellness device and ships without a falsification plan is a placebo.</p>
           <span class="card-link">Read the methodology</span>
         </a>
+
+        <!-- Audio card: uses <div> (not <a>) as its root so the two
+             inline secondary links (sources.md, looping-recipe.md) are
+             legal HTML. The bottom "Read the voice model" link is the
+             actual navigation affordance. -->
+        <div class="card">
+          <span class="card-num">§ 04.5 — Audio</span>
+          <h3>Species &amp; <em>voices</em></h3>
+          <p>The bioacoustic model behind the demo above: a UK garden cohort of eight species built from four call-type templates (continuous warble, motif-shrill, repeating phrase, trill), each grounded in citable literature. Adjacent notes on <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/sources.md">source recordings</a> and a <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/looping-recipe.md">looping recipe</a> for field-recording pilots.</p>
+          <a class="card-link" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">Read the voice model</a>
+        </div>
+
+        <!-- Analysis card: same <div> treatment as Audio, same reason
+             (two inline secondary links to tuning-report and analysis
+             README would otherwise nest inside the outer anchor). -->
+        <div class="card">
+          <span class="card-num">§ 04.6 — Analysis</span>
+          <h3>Numbers, not <em>vibes</em></h3>
+          <p>The engine rendered offline and compared to a reference dawn-chorus recording on onset density, gap distribution, averaged spectrum, and spectrogram — eight of nine metrics within ~15%, with the burstiness exception documented. Earlier <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/tuning-report.md">tuning report</a> documents the changes that got it there; <a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/README.md">analysis pipeline</a> is reproducible.</p>
+          <a class="card-link" href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">Read the validation</a>
+        </div>
+
+
       </div>
     </section>
 
@@ -1079,7 +1442,7 @@
           <h4>Repository</h4>
           <ul>
             <li><a href="https://github.com/christopherdebeer/sentinels">github.com/christopherdebeer/sentinels</a></li>
-            <li><a href="https://github.com/christopherdebeer/sentinels/issues">open issues</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/README.md">readme</a></li>
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/LICENSE">license</a></li>
           </ul>
         </div>
@@ -1090,6 +1453,8 @@
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/firmware.md">firmware</a></li>
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/research.md">research</a></li>
             <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/docs/experiments.md">experiments</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/voices.md">audio model</a></li>
+            <li><a href="https://github.com/christopherdebeer/sentinels/blob/main/audio/analysis/validation.md">validation</a></li>
           </ul>
         </div>
         <div>
@@ -1165,6 +1530,9 @@
       strophe: { dur: [3.0, 5.0], gap: [3.0, 10.0] },
       motif: { dur: [1.5, 2.5], freq: [1500, 3000], harmonics: 2, syllables: [3, 6] },
       shrill: { dur: [0.4, 0.8], freq: [4000, 6000], harmonics: 3, syllables: [3, 7] },
+      // Fluty timbre: fundamental still dominant but slightly thicker
+      // 2nd partial than the default for the woody-flute character.
+      partialGains: [1.0, 0.30, 0.08, 0.02],
       amp: 0.18,
       antiphonal: 0.5,
       overlapAvoid: 0.7,
@@ -1251,70 +1619,260 @@
     },
   };
 
-  // Cohort weights (sum to ~1.0; relative density of each species)
-  const COHORT_UK_GARDEN = {
-    robin:        0.20,
-    blackbird:    0.16,
-    songThrush:   0.10,
-    greatTit:     0.16,
-    wren:         0.10,
-    blueTit:      0.10,
-    dunnock:      0.08,
-    contactCalls: 0.10,
+  // ───────── NZ-native-bush cohort additions ─────────
+  // Three species selected from voices-nz-native-bush.md as fitting
+  // existing UK-cohort templates without any new synthesis primitives:
+  //
+  //   korimako (bellbird) ─── repeating-phrase (like song thrush, but
+  //                            shorter phrases, A-A-B / A-B-A patterns,
+  //                            tonal bell-like timbre)
+  //   pīwakawaka (fantail) ── contact-call (short repeated cheeps)
+  //   riroriro (grey warbler) descending-trill (slow descending notes,
+  //                            longer than blue tit)
+  //
+  // Tūī, kererū wing-beats, and others held back for v1.0 once
+  // mechanical-syllable + flight-event primitives exist (see voices-
+  // nz-native-bush.md §6.3, §6.4).
+  Object.assign(SPECIES, {
+    korimako: {
+      label: 'korimako',
+      latin: 'Anthornis melanura',
+      template: 'repeating-phrase',
+      // Bellbird: short phrases (2-4 notes), repeated 1-3× rather than
+      // song thrush's 2-4×. Phrases are tonal/melodic rather than the
+      // thrush's broader spectral content.
+      strophe: { gap: [2.0, 8.0] },
+      phrase: { dur: [0.6, 1.5], reps: [1, 3], internalGap: [0.3, 0.7] },
+      nPhrases: [3, 6],
+      // Narrow tonal range
+      freq: { range: [2500, 5000], harmonics: 3 },
+      // Bell-like timbre: fundamental dominant, thin upper partials.
+      // Default is [1.0, 0.40, 0.20] which produces a brassier sound.
+      // Korimako wants near-pure sine with just enough 2nd/3rd harmonic
+      // to give shimmer without metallicness.
+      partialGains: [1.0, 0.12, 0.04, 0.01],
+      amp: 0.16,
+      antiphonal: 0.5,
+      overlapAvoid: 0.5,
+    },
+    tui: {
+      label: 'tūī',
+      latin: 'Prosthemadera novaeseelandiae',
+      // Mixed-warble: tonal syllables + clicks + rough segments + whirrs.
+      // The mix proportions are the project's editorial estimate based
+      // on listening to xeno-canto reference recordings; literature
+      // typically describes tūī as ~60% tonal / 40% non-tonal, with
+      // clicks the most common non-tonal element.
+      template: 'mixed-warble',
+      strophe: { dur: [2.5, 5.5], gap: [4.0, 14.0] },
+      syllable: { count: [6, 14], gap: [0.06, 0.18], dur: [0.10, 0.25] },
+      syllableMix: { tonal: 0.60, click: 0.18, rough: 0.10, whirr: 0.12 },
+      // Tonal syllable freq band — broad
+      freq: { range: [1500, 5000], harmonics: 3 },
+      // Slight metallic-bell tilt for tonal syllables, less pure than korimako
+      partialGains: [1.0, 0.30, 0.12, 0.04],
+      // Mechanical syllable parameters
+      click: { fc: [3500, 6500], bw: 2500, dur: [0.008, 0.020] },
+      rough: { fc: [1500, 3500], bw: 1500, dur: [0.030, 0.090] },
+      whirr: { fc: [1200, 2800], modRate: [35, 70], dur: [0.10, 0.30] },
+      amp: 0.18,
+      antiphonal: 0.5,
+      overlapAvoid: 0.5,
+    },
+    kereru: {
+      label: 'kererū',
+      latin: 'Hemiphaga novaeseelandiae',
+      // Wing-beat flight event — non-vocal. Distinctive low-frequency
+      // pulse train, 1.5-3.5 s, ~3-5 Hz pulse rate. Heard rather than
+      // a song; happens when a kererū takes off through canopy.
+      template: 'flight-event',
+      strophe: { gap: [25, 90] },  // infrequent — flight events not constant
+      flight: {
+        rate: [3, 5],
+        pulseDur: [0.05, 0.09],
+        fc: [200, 600],
+        bw: 400,
+        dur: [1.5, 3.5],
+      },
+      amp: 0.13,
+      antiphonal: 0.0,  // doesn't trigger antiphonal response
+      overlapAvoid: 0.2,
+    },
+    piwakawaka: {
+      label: 'pīwakawaka',
+      latin: 'Rhipidura fuliginosa',
+      template: 'contact-call',
+      strophe: { gap: [3.0, 10.0] },
+      // High narrow-band cheep, often delivered in pairs/triples.
+      call: { dur: [0.04, 0.12], freq: [4500, 7500] },
+      harmonics: 2,
+      amp: 0.10,
+      antiphonal: 0.3,
+      overlapAvoid: 0.3,
+    },
+    riroriro: {
+      label: 'riroriro',
+      latin: 'Gerygone igata',
+      template: 'descending-trill',
+      // Slower descending sequence than blue tit (which is rapid).
+      // Riroriro song is famously melancholic — slow descending notes
+      // with audible gaps.
+      strophe: { dur: [2.0, 4.0], gap: [4.0, 12.0] },
+      intro: { freq: 5500, dur: 0.18, count: [1, 2] },
+      trill: { rate: [4, 7], freqStart: 5200, freqEnd: 3800, dur: 0.15 },
+      harmonics: 2,
+      amp: 0.12,
+      antiphonal: 0.4,
+      overlapAvoid: 0.5,
+    },
+    contactCallsNZ: {
+      // Aggregate background voice for NZ — distinct from UK contactCalls
+      // because the NZ ambient soundscape's high-frequency content is
+      // noticeably different (more pīwakawaka-shaped, fewer tit-shaped).
+      label: 'contact calls',
+      latin: '(various)',
+      template: 'contact-call',
+      strophe: { gap: [4.0, 14.0] },
+      call: { dur: [0.05, 0.18], freq: [3500, 7500] },
+      harmonics: 2,
+      amp: 0.09,
+      antiphonal: 0.2,
+      overlapAvoid: 0.3,
+    },
+  });
+
+  // ───────── Cohort registry ─────────
+  // Each cohort owns its own membership + per-species lookups. The engine
+  // reads through the active cohort: scheduler iterates cohort.species,
+  // spatial chain reads cohort.spatial, UI subtitle reads cohort.tints
+  // and cohort.labels. Switching cohort means re-pointing four refs and
+  // resetting voice state.
+  //
+  // To add a new cohort: define entries in SPECIES first (must be
+  // globally unique names), then add a new COHORTS entry with the
+  // species list, weights, and per-species spatial/tint/label tables.
+  const COHORTS = {
+    'uk-garden': {
+      label: 'UK garden',
+      description: 'Robin, blackbird, song thrush, great tit, wren, blue tit, dunnock, plus background contact calls.',
+      species: ['robin', 'blackbird', 'songThrush', 'greatTit', 'wren', 'blueTit', 'dunnock', 'contactCalls'],
+      weights: {
+        robin:        0.20,
+        blackbird:    0.16,
+        songThrush:   0.10,
+        greatTit:     0.16,
+        wren:         0.10,
+        blueTit:      0.10,
+        dunnock:      0.08,
+        contactCalls: 0.10,
+      },
+      // Per-species spatial characteristics. Each individual sampled at
+      // engine start (and re-rolled periodically) gets a position drawn
+      // from these distributions:
+      //   pan ∈ [-1, +1]   −1 = full left, +1 = full right, 0 = centre
+      //   distance ∈ [0,1] 0 = close & bright, 1 = far & muffled
+      //
+      // Note: panSpread and distSpread are interpreted as 1σ. A species
+      // with panMean +0.55 and panSpread 0.30 will sample most strophes
+      // in the +0.25..+0.85 range (clamped to ±1). Species means are
+      // chosen to spread across the full pan range — a chorus where
+      // every voice clusters near centre is perceptually mono.
+      //
+      // Note on energy balance: the most frequent and loudest voices
+      // dominate the chorus centre of mass. Robin (weight 0.20, amp
+      // 0.16) is placed near centre; less-dominant species sit in the
+      // wings. Without this, a chorus with every voice on the same side
+      // sounds left-biased even if the per-species samples are
+      // statistically unbiased.
+      spatial: {
+        robin:        { panMean:  0.00, panSpread: 0.40, distMean: 0.30, distSpread: 0.20 },
+        blackbird:    { panMean: +0.55, panSpread: 0.25, distMean: 0.20, distSpread: 0.15 },
+        songThrush:   { panMean: -0.40, panSpread: 0.20, distMean: 0.15, distSpread: 0.15 },
+        greatTit:     { panMean: -0.30, panSpread: 0.30, distMean: 0.35, distSpread: 0.25 },
+        wren:         { panMean: +0.75, panSpread: 0.25, distMean: 0.25, distSpread: 0.20 },
+        blueTit:      { panMean: +0.25, panSpread: 0.35, distMean: 0.40, distSpread: 0.25 },
+        dunnock:      { panMean: -0.80, panSpread: 0.20, distMean: 0.45, distSpread: 0.20 },
+        contactCalls: { panMean:  0.00, panSpread: 0.85, distMean: 0.60, distSpread: 0.30 },
+      },
+      // Tints: variations on the project palette, deliberately desaturated.
+      tints: {
+        robin:        '#7a8b5a',  // warm sage
+        blackbird:    '#3a3128',  // deep brown-black
+        songThrush:   '#8a6a48',  // warm brown
+        greatTit:     '#5b6b76',  // cool slate
+        wren:         '#a85a3a',  // rust (project accent)
+        blueTit:      '#7090a8',  // dusky blue-grey
+        dunnock:      '#8a8170',  // warm taupe
+        contactCalls: '#6b5f51',  // ink-faint, neutral
+      },
+      labels: {
+        robin:        { en: 'robin',         la: 'Erithacus rubecula' },
+        blackbird:    { en: 'blackbird',     la: 'Turdus merula' },
+        songThrush:   { en: 'song thrush',   la: 'Turdus philomelos' },
+        greatTit:     { en: 'great tit',     la: 'Parus major' },
+        wren:         { en: 'wren',          la: 'Troglodytes troglodytes' },
+        blueTit:      { en: 'blue tit',      la: 'Cyanistes caeruleus' },
+        dunnock:      { en: 'dunnock',       la: 'Prunella modularis' },
+        contactCalls: { en: 'contact calls', la: '(various)' },
+      },
+    },
+    'nz-bush': {
+      label: 'Aotearoa NZ native bush',
+      description: 'Tūī, korimako, pīwakawaka, riroriro, kererū wing-beats, plus background contact calls. v1.0 includes mechanical syllables (tūī clicks/coughs/whirrs) and the flight-event primitive for kererū wing-beats.',
+      species: ['tui', 'korimako', 'piwakawaka', 'riroriro', 'kereru', 'contactCallsNZ'],
+      weights: {
+        tui:            0.28,  // co-dominant with korimako
+        korimako:       0.28,
+        piwakawaka:     0.16,
+        riroriro:       0.14,
+        kereru:         0.04,  // rare — wing-beats happen on flight events only
+        contactCallsNZ: 0.10,
+      },
+      // NZ bush spatial: more distributed than UK garden, denser
+      // canopy/understory. Species means deliberately spread across
+      // the full pan range — a chorus where every voice clusters near
+      // centre is perceptually mono.
+      //
+      // Note on energy balance: korimako is both the most frequent
+      // voice in the NZ cohort (weight 0.30) and one of the loudest
+      // (amp 0.16, bell-pure partials cut through), so its position
+      // dominates the perceived chorus centre of mass. Placing
+      // korimako near 0 keeps the chorus balanced left/right; the
+      // less-dominant species sit in the wings to give spatial spread.
+      spatial: {
+        tui:            { panMean: +0.55, panSpread: 0.30, distMean: 0.25, distSpread: 0.20 },
+        korimako:       { panMean: -0.05, panSpread: 0.45, distMean: 0.40, distSpread: 0.30 },
+        piwakawaka:     { panMean: +0.40, panSpread: 0.40, distMean: 0.25, distSpread: 0.20 },
+        riroriro:       { panMean: -0.70, panSpread: 0.20, distMean: 0.45, distSpread: 0.25 },
+        kereru:         { panMean: -0.30, panSpread: 0.50, distMean: 0.20, distSpread: 0.15 },
+        contactCallsNZ: { panMean:  0.00, panSpread: 0.85, distMean: 0.65, distSpread: 0.30 },
+      },
+      tints: {
+        tui:            '#3a3a52',  // deep iridescent blue (tūī's namesake plumage)
+        korimako:       '#b89456',  // warm gold (bell tone)
+        piwakawaka:     '#7d6a52',  // soft taupe
+        riroriro:       '#5d6e4f',  // bush-green
+        kereru:         '#5a4a6a',  // dusky purple (wood-pigeon iridescence)
+        contactCallsNZ: '#6b5f51',  // shared neutral
+      },
+      labels: {
+        tui:            { en: 'tūī',         la: 'Prosthemadera novaeseelandiae' },
+        korimako:       { en: 'korimako',     la: 'Anthornis melanura' },
+        piwakawaka:     { en: 'pīwakawaka',   la: 'Rhipidura fuliginosa' },
+        riroriro:       { en: 'riroriro',     la: 'Gerygone igata' },
+        kereru:         { en: 'kererū wing-beats', la: 'Hemiphaga novaeseelandiae' },
+        contactCallsNZ: { en: 'contact calls', la: '(various)' },
+      },
+    },
   };
 
-  // Per-species spatial characteristics. Each individual sampled at
-  // engine start (and re-rolled periodically) gets a position drawn
-  // from these distributions:
-  //   pan ∈ [-1, +1]   −1 = full left, +1 = full right, 0 = centre
-  //   distance ∈ [0,1] 0 = close & bright, 1 = far & muffled
-  // Per-species mean reflects ecological context:
-  //   robin     — often low, cluttered undergrowth, slightly off-centre
-  //   blackbird — perched high, often visible — central, near-ish
-  //   songThrush— high perch, very prominent — central, close
-  //   greatTit  — canopy, anywhere
-  //   wren      — dense low cover, off-axis
-  //   blueTit   — canopy, mostly above
-  //   dunnock   — low cover, off-axis
-  //   contactCalls — distributed ambient, wide & far (re-rolled per emission)
-  const VOICE_SPATIAL = {
-    robin:        { panMean:  0.10, panSpread: 0.55, distMean: 0.30, distSpread: 0.20 },
-    blackbird:    { panMean: -0.10, panSpread: 0.40, distMean: 0.20, distSpread: 0.15 },
-    songThrush:   { panMean:  0.00, panSpread: 0.40, distMean: 0.15, distSpread: 0.15 },
-    greatTit:     { panMean:  0.20, panSpread: 0.65, distMean: 0.35, distSpread: 0.25 },
-    wren:         { panMean: -0.40, panSpread: 0.55, distMean: 0.25, distSpread: 0.20 },
-    blueTit:      { panMean:  0.30, panSpread: 0.60, distMean: 0.40, distSpread: 0.25 },
-    dunnock:      { panMean:  0.30, panSpread: 0.55, distMean: 0.45, distSpread: 0.20 },
-    contactCalls: { panMean:  0.00, panSpread: 0.95, distMean: 0.60, distSpread: 0.30 },
-  };
-
-  // Per-species tints — variations on the project palette (warm browns
-  // for thrushes, sages for warblers, cool greys for tits, slightly
-  // different rust for wren). Deliberately desaturated so the dot
-  // pulse remains peripheral, not attention-grabbing.
-  const VOICE_TINTS = {
-    robin:        '#7a8b5a',  // warm sage
-    blackbird:    '#3a3128',  // deep brown-black
-    songThrush:   '#8a6a48',  // warm brown
-    greatTit:     '#5b6b76',  // cool slate
-    wren:         '#a85a3a',  // rust (project accent)
-    blueTit:      '#7090a8',  // dusky blue-grey
-    dunnock:      '#8a8170',  // warm taupe
-    contactCalls: '#6b5f51',  // ink-faint, neutral
-  };
-
-  // Display labels (English) and Latin binomials for the subtitle.
-  // Latin is restrained — it shows up small, italic, slightly faded.
-  const VOICE_LABELS = {
-    robin:        { en: 'robin',         la: 'Erithacus rubecula' },
-    blackbird:    { en: 'blackbird',     la: 'Turdus merula' },
-    songThrush:   { en: 'song thrush',   la: 'Turdus philomelos' },
-    greatTit:     { en: 'great tit',     la: 'Parus major' },
-    wren:         { en: 'wren',          la: 'Troglodytes troglodytes' },
-    blueTit:      { en: 'blue tit',      la: 'Cyanistes caeruleus' },
-    dunnock:      { en: 'dunnock',       la: 'Prunella modularis' },
-    contactCalls: { en: 'contact calls', la: '(various)' },
-  };
+  // The active cohort is mutable. setCohort() in Sentinels swaps the
+  // four lookups and rebuilds voice state. Default to UK garden.
+  let ACTIVE_COHORT = 'uk-garden';
+  let COHORT_WEIGHTS = COHORTS[ACTIVE_COHORT].weights;
+  let VOICE_SPATIAL  = COHORTS[ACTIVE_COHORT].spatial;
+  let VOICE_TINTS    = COHORTS[ACTIVE_COHORT].tints;
+  let VOICE_LABELS   = COHORTS[ACTIVE_COHORT].labels;
 
   // Friendly names for the call-type templates, used in the subtitle's
   // small uppercase descriptor. Short on purpose — long descriptions
@@ -1327,6 +1885,8 @@
     'trill-song':        'trill',
     'descending-trill':  'descending trill',
     'contact-call':      'call',
+    'mixed-warble':      'mixed warble',
+    'flight-event':      'wing-beats',
   };
 
   const Sentinels = {
@@ -1336,10 +1896,20 @@
 
     state: {
       playing: false,
-      volume: 0.25,
-      density: 0.30,
-      // Each species can be toggled independently
-      species: Object.fromEntries(Object.keys(SPECIES).map(k => [k, true])),
+      // Defaults match the HTML slider initial values (both at 10/100,
+      // which resolves to "whisper" / "sparse" via readoutFor). Keep
+      // these in sync with the slider `value` attributes — a user who
+      // hits Listen before touching a slider should get the soundscape
+      // the labels promise.
+      volume: 0.10,
+      density: 0.10,
+      // Active cohort name. Toggling cohorts is via setCohort().
+      cohort: ACTIVE_COHORT,
+      // Per-species toggles. Keys are species in the active cohort
+      // only; rebuilt by initVoiceState() on cohort change.
+      species: Object.fromEntries(
+        COHORTS[ACTIVE_COHORT].species.map(k => [k, true])
+      ),
     },
 
     // Per-species scheduler state
@@ -1356,6 +1926,13 @@
     lastStropheEnd: 0,
     stimulationDecay: 6.0,  // seconds for the stimulation to fade
 
+    // Tracks the AudioContext state. Distinct from state.playing: the
+    // boolean records user *intent*, ctxState records what the platform
+    // is *actually* doing. They diverge whenever iOS suspends the context
+    // on tab hide / lock screen / phone interrupt — and that divergence
+    // is what we want the UI to reflect honestly.
+    ctxState: 'idle',  // 'idle' | 'running' | 'suspended' | 'interrupted' | 'closed'
+
     ensureContext() {
       if (!this.ctx) {
         const Ctor = window.AudioContext || window.webkitAudioContext;
@@ -1367,8 +1944,19 @@
         this.analyser.smoothingTimeConstant = 0.65;
         this.master.connect(this.analyser);
         this.analyser.connect(this.ctx.destination);
+        // Mirror context state into our own field so subscribers can react.
+        // Safari uses 'interrupted' for system interruptions (calls, etc).
+        this.ctxState = this.ctx.state;
+        this.ctx.addEventListener('statechange', () => {
+          this.ctxState = this.ctx.state;
+          this.notify();
+        });
       }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx.state === 'suspended' || this.ctx.state === 'interrupted') {
+        // resume() returns a promise — we don't await because callers
+        // need to be synchronous; statechange will fire if it succeeds.
+        this.ctx.resume().catch(() => { /* will require user gesture */ });
+      }
     },
 
     targetGain() {
@@ -1390,33 +1978,56 @@
       // startup that masks the per-species gap scaling.
       const density = this.state.density;
       const initSpread = 4 + (1 - density) * 60;  // d=0 → 64s, d=1 → 4s
-      Object.keys(SPECIES).forEach(name => {
+      this.voiceState = {};
+      // Iterate the active cohort's species, not all SPECIES — the
+      // engine should never schedule strophes for species outside the
+      // current cohort even if their profiles exist in SPECIES.
+      const cohortSpecies = COHORTS[ACTIVE_COHORT].species;
+      cohortSpecies.forEach(name => {
         this.voiceState[name] = {
           nextStropheAt: now + 0.5 + Math.random() * initSpread,
           activeUntil: 0,
           ...this.samplePosition(name),
         };
       });
+      // Reset the per-species toggles to "all on" for the new cohort —
+      // a user who turned off a UK species and then switched to NZ
+      // should see all NZ species enabled, not blank.
+      const enabled = {};
+      cohortSpecies.forEach(name => { enabled[name] = true; });
+      this.state.species = enabled;
     },
 
     // Sample a (pan, distance) for a species' current "individual",
-    // along with a re-roll deadline 60-120s in the future at which point
+    // along with a re-roll deadline 20-50s in the future at which point
     // the bird is treated as having moved tree.
+    //
+    // Sampling: truncated-normal via Box-Muller. The `spread` parameter
+    // is interpreted as 1σ — a panSpread of 0.6 means a normal with
+    // standard deviation 0.6, so most samples land within ±0.6 of the
+    // mean (and clamped to [lo, hi]).
+    //
+    // Reposition cadence chosen for the listening pattern people
+    // actually have: a typical demo session is 30-60s, and birds
+    // staying put for 60-120s meant most species fired from one
+    // fixed point during a session — perceived as "spatial chain
+    // doing nothing". 20-50s gives audibly mobile birds within a
+    // typical session while still letting individual songs feel
+    // like they come from the same place over a small handful of
+    // strophes.
     samplePosition(name) {
       const sp = VOICE_SPATIAL[name];
       if (!sp) return { pan: 0, distance: 0.3, repositionAt: Infinity };
-      // Truncated-normal sample: Box-Muller, clamped to [-1, +1] for pan
-      // and [0, 1] for distance.
-      const sampleAround = (mean, spread, lo, hi) => {
+      const sampleAround = (mean, sigma, lo, hi) => {
         const u1 = Math.random(), u2 = Math.random();
         const z = Math.sqrt(-2 * Math.log(u1 + 1e-9)) * Math.cos(2 * Math.PI * u2);
-        return Math.max(lo, Math.min(hi, mean + z * spread * 0.5));
+        return Math.max(lo, Math.min(hi, mean + z * sigma));
       };
       const pan = sampleAround(sp.panMean, sp.panSpread, -1, 1);
       const distance = sampleAround(sp.distMean, sp.distSpread, 0, 1);
       const now = this.ctx ? this.ctx.currentTime : 0;
-      // Re-roll between 60s and 120s later
-      const repositionAt = now + 60 + Math.random() * 60;
+      // Re-roll between 20s and 50s later
+      const repositionAt = now + 20 + Math.random() * 30;
       return { pan, distance, repositionAt };
     },
 
@@ -1456,7 +2067,30 @@
       this.notify();
     },
 
-    toggle() { this.state.playing ? this.stop() : this.start(); },
+    toggle() {
+      // Three cases:
+      //  1. Not playing → start.
+      //  2. Playing AND context running → stop.
+      //  3. Playing BUT context suspended/interrupted (iOS auto-pause,
+      //     system interrupt) → resume the context. Don't stop-then-
+      //     restart; that would tear down voice state and lose continuity.
+      //     This branch is the user clicking from a "paused — tap to
+      //     resume" affordance after returning to the tab.
+      if (!this.state.playing) {
+        this.start();
+        return;
+      }
+      if (this.ctx && (this.ctx.state === 'suspended' || this.ctx.state === 'interrupted')) {
+        this.ctx.resume().catch(() => {
+          // resume() in some iOS interruption states needs a fresh
+          // context. Fall back to a hard restart.
+          this.stop();
+          setTimeout(() => this.start(), 100);
+        });
+        return;
+      }
+      this.stop();
+    },
 
     setVolume(v) {
       this.state.volume = v;
@@ -1477,6 +2111,30 @@
         if (others.length === 0) return false;
       }
       this.state.species[name] = enabled;
+      return true;
+    },
+
+    // Switch cohort. Re-points the four lookup tables (weights, spatial,
+    // tints, labels), resets voice state, and notifies subscribers so
+    // the UI can re-render its species chips for the new cohort.
+    //
+    // Safe to call at any time — when playing, the active cohort's
+    // strophes will fade naturally as the scheduler reads the new
+    // voice state on its next tick.
+    setCohort(name) {
+      if (!COHORTS[name]) return false;
+      if (name === ACTIVE_COHORT) return true;
+      ACTIVE_COHORT = name;
+      COHORT_WEIGHTS = COHORTS[name].weights;
+      VOICE_SPATIAL  = COHORTS[name].spatial;
+      VOICE_TINTS    = COHORTS[name].tints;
+      VOICE_LABELS   = COHORTS[name].labels;
+      this.state.cohort = name;
+      // Rebuild voice state for the new cohort. If we're playing, this
+      // also re-staggers initial strophes — equivalent to a soft restart
+      // of the soundscape with the new species.
+      if (this.ctx) this.initVoiceState();
+      this.notify();
       return true;
     },
 
@@ -1519,17 +2177,28 @@
       // density the politeness is preserved
       const overlapAvoidScale = 1.0 - density * 0.4;
 
-      Object.keys(SPECIES).forEach(name => {
+      // Iterate the active cohort's species list (not all SPECIES).
+      // The cohort registry is the single source of truth for which
+      // species are scheduled this run.
+      const cohortSpecies = COHORTS[ACTIVE_COHORT].species;
+      cohortSpecies.forEach(name => {
         if (!this.state.species[name]) return;
         const profile = SPECIES[name];
         const vs = this.voiceState[name];
+        if (!profile || !vs) return;  // mid-cohort-switch defensiveness
 
         if (vs.nextStropheAt > horizon) return;
 
         // Cohort weight: relative emission probability among species
-        // (e.g. robin sings more often than dunnock).
-        const cohortWeight = COHORT_UK_GARDEN[name] || 0.1;
-        const cohortNorm = cohortWeight / 0.20;  // robin = 1.0, dunnock = 0.4
+        // within the active cohort (e.g. robin sings more often than
+        // dunnock; korimako dominates the NZ cohort).
+        const cohortWeight = COHORT_WEIGHTS[name] || 0.1;
+        // Normalise to the heaviest weight in the active cohort so the
+        // scaling is cohort-relative — without this, NZ's korimako (0.40)
+        // would over-fire because the previous code hard-coded "robin =
+        // 1.0" via a 0.20 divisor.
+        const maxWeight = Math.max(...Object.values(COHORT_WEIGHTS));
+        const cohortNorm = cohortWeight / maxWeight;
 
         // Density semantics decoupled into two separate effects:
         //
@@ -1577,10 +2246,26 @@
         }
 
         // Contact-calls re-roll position every emission (multiple distant
-        // distributed callers, not one stationary bird).
-        const positionForStrophe = (name === 'contactCalls')
-          ? this.samplePosition(name)
-          : { pan: vs.pan, distance: vs.distance };
+        // distributed callers, not one stationary bird). Triggered by
+        // template type, not name — works for any cohort's contact-call
+        // aggregate voice.
+        //
+        // Other species: small per-strophe jitter on top of the held
+        // individual position. Birds shift on the perch between songs —
+        // perfectly identical positions across consecutive strophes
+        // sound static. Jitter is small (±0.05 pan, ±0.03 distance) so
+        // the overall sense is "same bird", not "different bird".
+        let positionForStrophe;
+        if (profile.template === 'contact-call') {
+          positionForStrophe = this.samplePosition(name);
+        } else {
+          const panJ = (Math.random() - 0.5) * 0.10;
+          const distJ = (Math.random() - 0.5) * 0.06;
+          positionForStrophe = {
+            pan: Math.max(-1, Math.min(1, vs.pan + panJ)),
+            distance: Math.max(0, Math.min(1, vs.distance + distJ)),
+          };
+        }
 
         // Emit a strophe of this species' template
         const stropheEnd = this.emitStrophe(name, profile, vs.nextStropheAt, driftBrightness, positionForStrophe);
@@ -1593,15 +2278,35 @@
         // probability curve and density-scaled initial spread, this
         // gives a real "occasional calls" feel at low density and a
         // saturated chorus at high density.
+        // Schedule next strophe — strophe-gap timing is now
+        // density-dependent and log-normal sampled.
+        //
+        // Earlier versions used truncated-normal (Box-Muller clamped to
+        // [lo, 1.5×hi]) which fits robin/blackbird gap distributions
+        // adequately but mis-shapes the tails for species with wider
+        // gap ranges (tūī 4–15s, wren 5–15s). Log-normal is the natural
+        // fit for inter-call gaps in the dawn-chorus literature, and the
+        // analyse.py validation pipeline treats the reference gaps as
+        // log-normal — so synthesising from the same distribution is
+        // both more authentic and improves the validation metric.
+        //
+        // Param mapping: gap range [lo, hi] is interpreted as the
+        // ~10%–90% interval of a log-normal distribution. mu = mean of
+        // log(lo) and log(hi); sigma chosen so ±1.282 sigma covers
+        // log(lo)..log(hi). The 80% rather than 90% CI is calibrated
+        // against the squashy555 reference (real σ=0.45); a wider CI
+        // gave engine σ=0.54.
         const gapRange = profile.strophe?.gap || [3, 8];
         const gapScale = 5.0 - density * 4.6;  // d=0 → 5×, d=1 → 0.4×
-        const scaledLo = gapRange[0] * gapScale;
-        const scaledHi = gapRange[1] * gapScale;
-        const gapMean = (scaledLo + scaledHi) / 2;
-        const gapSd = (scaledHi - scaledLo) / 4;
+        const scaledLo = Math.max(0.05, gapRange[0] * gapScale);
+        const scaledHi = Math.max(scaledLo + 0.1, gapRange[1] * gapScale);
+        const logLo = Math.log(scaledLo);
+        const logHi = Math.log(scaledHi);
+        const mu = (logLo + logHi) / 2;
+        const sigma = (logHi - logLo) / (2 * 1.282);  // 80% CI mapping
         const u1 = Math.random(), u2 = Math.random();
         const z = Math.sqrt(-2 * Math.log(u1 + 1e-9)) * Math.cos(2 * Math.PI * u2);
-        const gap = Math.max(scaledLo * 0.5, Math.min(scaledHi * 1.5, gapMean + z * gapSd));
+        const gap = Math.max(scaledLo * 0.4, Math.min(scaledHi * 2.5, Math.exp(mu + z * sigma)));
         vs.nextStropheAt = stropheEnd + gap;
       });
     },
@@ -1667,6 +2372,10 @@
             stropheEnd = this.emitDescendingTrill(profile, at, fScale); break;
           case 'contact-call':
             stropheEnd = this.emitContactCall(profile, at, fScale); break;
+          case 'mixed-warble':
+            stropheEnd = this.emitMixedWarble(profile, at, fScale); break;
+          case 'flight-event':
+            stropheEnd = this.emitFlightEvent(profile, at, fScale); break;
           default:
             stropheEnd = at + 1;
         }
@@ -1696,7 +2405,7 @@
     // The atomic operation. Frequency curve is given as a function
     // of time-from-start; a small bank of partials shares the curve
     // (multiplied by harmonic number) so the timbre stays coherent.
-    synthTone(at, dur, freqCurve, amp, harmonics, envProfile) {
+    synthTone(at, dur, freqCurve, amp, harmonics, envProfile, partialGainsOverride) {
       const env = this.ctx.createGain();
       env.gain.setValueAtTime(0, at);
       // Default envelope: short attack, plateau, decay
@@ -1706,7 +2415,12 @@
       env.gain.exponentialRampToValueAtTime(0.0008, at + dur);
       env.connect(this.master);
 
-      const partialGains = [1.0, 0.40, 0.20, 0.10];  // -8, -14, -20 dB
+      // Default partial gains (~−8, −14, −20 dB). Species can override
+      // via SPECIES[name].partialGains for distinctive timbres — bell-
+      // like korimako wants near-pure fundamental, fluty blackbird wants
+      // a slightly different roll-off, etc.
+      const defaultPartialGains = [1.0, 0.40, 0.20, 0.10];
+      const partialGains = partialGainsOverride || defaultPartialGains;
       for (let h = 1; h <= harmonics; h++) {
         const osc = this.ctx.createOscillator();
         const pg = this.ctx.createGain();
@@ -1736,6 +2450,156 @@
       }
     },
 
+    // ───────── Mechanical synthesis primitives ─────────
+    //
+    // synthTone above produces band-limited sine harmonics — adequate
+    // for tonal vocalisations (warbles, trills, motifs) but unable to
+    // model the click-cough-whirr inventory of species like tūī.
+    //
+    // These three primitives use white-noise buffer sources fed through
+    // bandpass filters and sharp envelopes to render:
+    //
+    //   synthClick — short broadband transient (~10 ms)
+    //   synthRough — medium AM-modulated noise pulse (~30-60 ms)
+    //   synthWhirr — longer AM-modulated tonal pulse (~100-300 ms)
+    //
+    // All three share the same cached white-noise buffer (3 s loop,
+    // generated once on first use) to avoid per-event buffer allocation.
+    // Like synthTone, they synthesise into `this.master` — which is
+    // temporarily redirected to the spatial chain by emitStrophe.
+
+    _noiseBuffer: null,
+    _ensureNoiseBuffer() {
+      if (this._noiseBuffer) return this._noiseBuffer;
+      const sr = this.ctx.sampleRate;
+      const len = sr * 3;
+      const buf = this.ctx.createBuffer(1, len, sr);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      this._noiseBuffer = buf;
+      return buf;
+    },
+
+    // Click: short broadband transient. Bandpass-filtered noise with
+    // a sharp attack-decay envelope. Tūī clicks are ~10 ms with energy
+    // roughly centred 2–6 kHz and a wide bandwidth.
+    synthClick(at, dur, fc, bw, amp) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._ensureNoiseBuffer();
+      src.loop = true;
+      // Random start offset within the noise buffer so consecutive
+      // clicks aren't exact repeats of the same waveform window.
+      const bufDur = src.buffer.duration;
+      try { src.playbackRate.value = 1.0; } catch (e) {}
+      // Bandpass filter
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = fc;
+      bp.Q.value = Math.max(0.5, fc / Math.max(50, bw));
+      // Sharp envelope — exponential attack and decay for that transient feel
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(amp, at + Math.min(0.002, dur * 0.15));
+      env.gain.exponentialRampToValueAtTime(0.0008, at + dur);
+      src.connect(bp);
+      bp.connect(env);
+      env.connect(this.master);
+      const offset = Math.random() * (bufDur - dur - 0.01);
+      src.start(at, offset, dur + 0.05);
+    },
+
+    // Rough: medium-duration noise with cough/grunt-like quality.
+    // Wider bandwidth than click, with mild AM modulation on the
+    // envelope to give a textured rather than smooth sound. Used for
+    // tūī coughs and the rougher segments of mixed-warble strophes.
+    synthRough(at, dur, fc, bw, amp) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._ensureNoiseBuffer();
+      src.loop = true;
+      const bufDur = src.buffer.duration;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = fc;
+      // Lower Q for broader bandwidth than click
+      bp.Q.value = Math.max(0.3, (fc * 0.6) / Math.max(50, bw));
+      // Envelope with AM modulation: a slow LFO multiplied into the
+      // gain ramp gives the rough texture. Built as setValueCurveAtTime
+      // for an audible warble inside the pulse.
+      const env = this.ctx.createGain();
+      const N = Math.max(8, Math.floor(dur * 200));
+      const curve = new Float32Array(N);
+      const modRate = 30 + Math.random() * 40;  // 30-70 Hz AM
+      for (let i = 0; i < N; i++) {
+        const tFrac = i / (N - 1);
+        // Attack-plateau-decay shape
+        const shape = tFrac < 0.1
+          ? tFrac / 0.1
+          : tFrac > 0.7
+            ? (1 - tFrac) / 0.3
+            : 1.0;
+        // AM modulation depth ~0.3
+        const am = 1 - 0.35 * (0.5 + 0.5 * Math.sin(2 * Math.PI * modRate * tFrac * dur));
+        curve[i] = Math.max(0, amp * shape * am);
+      }
+      env.gain.setValueAtTime(0, at);
+      env.gain.setValueCurveAtTime(curve, at, dur);
+      src.connect(bp);
+      bp.connect(env);
+      env.connect(this.master);
+      const offset = Math.random() * (bufDur - dur - 0.01);
+      src.start(at, offset, dur + 0.05);
+    },
+
+    // Whirr: AM-modulated tonal pulse — small-motor / mechanical-clatter
+    // character. Sine carrier with an LFO on its gain at 30-60 Hz. Used
+    // for tūī's distinctive whirring vocal segments. Length 100-300 ms.
+    synthWhirr(at, dur, fc, modRate, amp) {
+      const carrier = this.ctx.createOscillator();
+      carrier.type = 'sine';
+      carrier.frequency.value = fc;
+      // Slight glide upward over the pulse for animation
+      carrier.frequency.setValueAtTime(fc * 0.95, at);
+      carrier.frequency.linearRampToValueAtTime(fc * 1.05, at + dur);
+      // Second partial — a tonal whirr has detectable harmonic content
+      const carrier2 = this.ctx.createOscillator();
+      carrier2.type = 'sine';
+      carrier2.frequency.value = fc * 2;
+      carrier2.frequency.setValueAtTime(fc * 2 * 0.95, at);
+      carrier2.frequency.linearRampToValueAtTime(fc * 2 * 1.05, at + dur);
+      const partial2Gain = this.ctx.createGain();
+      partial2Gain.gain.value = 0.25;
+      // LFO for AM
+      const lfo = this.ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = modRate;
+      const lfoGain = this.ctx.createGain();
+      lfoGain.gain.value = 0.5;  // depth — multiplies into modGain
+      // modGain receives the LFO and adds it to a DC offset of 0.5
+      // (so the AM oscillates between 0 and 1, full-depth)
+      const modGain = this.ctx.createGain();
+      modGain.gain.value = 0.5;  // DC component
+      lfo.connect(lfoGain);
+      lfoGain.connect(modGain.gain);
+      // Outer envelope
+      const env = this.ctx.createGain();
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(amp, at + Math.min(0.015, dur * 0.1));
+      env.gain.linearRampToValueAtTime(amp, at + dur * 0.85);
+      env.gain.exponentialRampToValueAtTime(0.0008, at + dur);
+      // Wiring: carrier → modGain → env → master, plus carrier2 → partial2 → modGain
+      carrier.connect(modGain);
+      carrier2.connect(partial2Gain);
+      partial2Gain.connect(modGain);
+      modGain.connect(env);
+      env.connect(this.master);
+      carrier.start(at);
+      carrier2.start(at);
+      lfo.start(at);
+      carrier.stop(at + dur + 0.05);
+      carrier2.stop(at + dur + 0.05);
+      lfo.stop(at + dur + 0.05);
+    },
+
     // ───────── Templates ─────────
 
     // Continuous warble: sequence of varied syllables, each a short
@@ -1762,7 +2626,7 @@
 
         this.synthTone(t, sylDurActual,
           { points: [[0, fStart], [0.4, fMid], [1, fEnd]] },
-          profile.amp, profile.freq.harmonics);
+          profile.amp, profile.freq.harmonics, undefined, profile.partialGains);
         t += sylDurActual + profile.syllable.gap[0] +
           Math.random() * (profile.syllable.gap[1] - profile.syllable.gap[0]);
       }
@@ -1788,7 +2652,7 @@
         this.synthTone(t, sylDur,
           { points: [[0, fStart], [1, fEnd]] },
           profile.amp * 1.1, profile.motif.harmonics,
-          { attack: 0.04, decayStart: 0.7, plateau: profile.amp * 1.1 });
+          { attack: 0.04, decayStart: 0.7, plateau: profile.amp * 1.1 }, profile.partialGains);
         t = at + ((i + 1) / motifSyls) * motifDur;
       }
 
@@ -1807,7 +2671,7 @@
         const fEnd = f * (0.85 + Math.random() * 0.3);
         this.synthTone(tStart, shrillSylDur,
           { points: [[0, f], [1, fEnd]] },
-          profile.amp * 0.85, profile.shrill.harmonics);
+          profile.amp * 0.85, profile.shrill.harmonics, undefined, profile.partialGains);
       }
       return t + shrillDur;
     },
@@ -1844,7 +2708,7 @@
             const dur = syl.durFrac * phraseDur;
             this.synthTone(tStart, dur,
               { points: [[0, syl.fStart], [1, syl.fEnd]] },
-              profile.amp, profile.freq.harmonics);
+              profile.amp, profile.freq.harmonics, undefined, profile.partialGains);
           });
           t += phraseDur + profile.phrase.internalGap[0] +
             Math.random() * (profile.phrase.internalGap[1] - profile.phrase.internalGap[0]);
@@ -1871,11 +2735,11 @@
         const fHiEnd = fHi * (1 + profile.noteHi.sweep);
         this.synthTone(t, phrase.dur,
           { points: [[0, fHi], [1, fHiEnd]] },
-          profile.amp, profile.harmonics);
+          profile.amp, profile.harmonics, undefined, profile.partialGains);
         // Low note
         this.synthTone(t + phrase.dur * 1.2, phrase.dur,
           { points: [[0, fLo], [1, fLo]] },
-          profile.amp, profile.harmonics);
+          profile.amp, profile.harmonics, undefined, profile.partialGains);
         t += phrase.period;
       }
       return t;
@@ -1892,7 +2756,7 @@
           const f = profile.trill.freq[0] + Math.random() * (profile.trill.freq[1] - profile.trill.freq[0]);
           this.synthTone(t, 0.04,
             { points: [[0, f * fScale], [1, f * 0.9 * fScale]] },
-            profile.amp * 0.9, profile.harmonics);
+            profile.amp * 0.9, profile.harmonics, undefined, profile.partialGains);
           t += 0.06 + Math.random() * 0.04;
         }
       }
@@ -1915,7 +2779,7 @@
         const fEnd = (fBase + wave * fSpread * 0.6 + 200) * fScale;
         this.synthTone(t, sylDur,
           { points: [[0, fStart], [1, fEnd]] },
-          profile.amp, profile.harmonics);
+          profile.amp, profile.harmonics, undefined, profile.partialGains);
         t += sylPeriod;
         i++;
       }
@@ -1931,7 +2795,7 @@
       for (let i = 0; i < introCount; i++) {
         this.synthTone(t, profile.intro.dur,
           { points: [[0, profile.intro.freq * fScale], [1, profile.intro.freq * 0.95 * fScale]] },
-          profile.amp, profile.harmonics);
+          profile.amp, profile.harmonics, undefined, profile.partialGains);
         t += profile.intro.dur * 1.4;
       }
       // Brief pause
@@ -1949,7 +2813,7 @@
         const f = (profile.trill.freqStart - frac * (profile.trill.freqStart - profile.trill.freqEnd)) * fScale;
         this.synthTone(t, profile.trill.dur,
           { points: [[0, f], [1, f * 0.95]] },
-          profile.amp, profile.harmonics);
+          profile.amp, profile.harmonics, undefined, profile.partialGains);
         t += sylPeriod;
       }
       return stropheEnd;
@@ -1962,16 +2826,106 @@
       const f = (profile.call.freq[0] + Math.random() * (profile.call.freq[1] - profile.call.freq[0])) * fScale;
       this.synthTone(at, dur,
         { points: [[0, f], [1, f * 0.92]] },
-        profile.amp, profile.harmonics);
+        profile.amp, profile.harmonics, undefined, profile.partialGains);
       // Sometimes a quick pair
       if (Math.random() > 0.5) {
         const f2 = (profile.call.freq[0] + Math.random() * (profile.call.freq[1] - profile.call.freq[0])) * fScale;
         this.synthTone(at + dur + 0.1, dur,
           { points: [[0, f2], [1, f2 * 0.92]] },
-          profile.amp, profile.harmonics);
+          profile.amp, profile.harmonics, undefined, profile.partialGains);
         return at + dur + 0.1 + dur;
       }
       return at + dur;
+    },
+
+    // Mixed warble: tūī-shaped strophe drawing each syllable from a
+    // distribution `{tonal, click, rough, whirr}`. Profile must declare
+    // `syllableMix` with the proportions, plus parameter ranges for
+    // each non-tonal type. Tonal syllables use synthTone with the
+    // species' partialGains; mechanical syllables use the new
+    // synthClick/Rough/Whirr primitives.
+    emitMixedWarble(profile, at, fScale) {
+      const stropheDur = profile.strophe.dur[0] +
+        Math.random() * (profile.strophe.dur[1] - profile.strophe.dur[0]);
+      const sylCountRange = profile.syllable.count;
+      const sylCount = Math.floor(
+        sylCountRange[0] + Math.random() * (sylCountRange[1] - sylCountRange[0])
+      );
+      const mix = profile.syllableMix || { tonal: 1.0 };
+      // Build cumulative distribution for the mix
+      const types = [];
+      let cum = 0;
+      for (const k of ['tonal', 'click', 'rough', 'whirr']) {
+        if (mix[k] > 0) {
+          cum += mix[k];
+          types.push({ k, cum });
+        }
+      }
+      const total = cum;
+      const stropheEnd = at + stropheDur;
+      let t = at;
+      for (let i = 0; i < sylCount && t < stropheEnd; i++) {
+        const r = Math.random() * total;
+        const type = types.find(x => r <= x.cum)?.k || 'tonal';
+        const sylDurActual = profile.syllable.dur[0] +
+          Math.random() * (profile.syllable.dur[1] - profile.syllable.dur[0]);
+        if (type === 'tonal') {
+          const fRange = profile.freq.range;
+          const fStart = (fRange[0] + Math.random() * (fRange[1] - fRange[0])) * fScale;
+          const fEnd = (fRange[0] + Math.random() * (fRange[1] - fRange[0])) * fScale;
+          const fMid = (fStart + fEnd) / 2 + (Math.random() - 0.5) * 400;
+          this.synthTone(t, sylDurActual,
+            { points: [[0, fStart], [0.4, fMid], [1, fEnd]] },
+            profile.amp, profile.freq.harmonics, undefined, profile.partialGains);
+        } else if (type === 'click') {
+          const cp = profile.click || { fc: [3000, 6000], bw: 1500, dur: [0.008, 0.015] };
+          const fc = cp.fc[0] + Math.random() * (cp.fc[1] - cp.fc[0]);
+          const dur = cp.dur[0] + Math.random() * (cp.dur[1] - cp.dur[0]);
+          this.synthClick(t, dur, fc * fScale, cp.bw, profile.amp * 0.85);
+        } else if (type === 'rough') {
+          const rp = profile.rough || { fc: [1500, 3500], bw: 1500, dur: [0.030, 0.080] };
+          const fc = rp.fc[0] + Math.random() * (rp.fc[1] - rp.fc[0]);
+          const dur = rp.dur[0] + Math.random() * (rp.dur[1] - rp.dur[0]);
+          this.synthRough(t, dur, fc * fScale, rp.bw, profile.amp * 0.75);
+        } else if (type === 'whirr') {
+          const wp = profile.whirr || { fc: [1200, 2400], modRate: [40, 70], dur: [0.10, 0.30] };
+          const fc = wp.fc[0] + Math.random() * (wp.fc[1] - wp.fc[0]);
+          const modRate = wp.modRate[0] + Math.random() * (wp.modRate[1] - wp.modRate[0]);
+          const dur = wp.dur[0] + Math.random() * (wp.dur[1] - wp.dur[0]);
+          this.synthWhirr(t, dur, fc * fScale, modRate, profile.amp * 0.7);
+        }
+        t += sylDurActual + profile.syllable.gap[0] +
+          Math.random() * (profile.syllable.gap[1] - profile.syllable.gap[0]);
+      }
+      return stropheEnd;
+    },
+
+    // Flight event: non-vocal mechanical sound — primarily for kererū
+    // wing-beats (a 1–4 second sequence of broadband low-frequency pulses
+    // at 3–5 Hz). Bypasses the typical voice-band assumption: pulses are
+    // 150–800 Hz centred, with broad bandwidth.
+    //
+    // The spatial chain set up by emitStrophe still routes this — the
+    // low-pass cutoff at distance 1 is 3.2 kHz, well above kererū's
+    // pulse band, so distance attenuation works correctly without the
+    // chain interfering with the pulse content. Pan still applies.
+    emitFlightEvent(profile, at, fScale) {
+      const fp = profile.flight || { rate: [3, 5], pulseDur: [0.04, 0.08], fc: [200, 600], bw: 400, dur: [1.5, 3.5] };
+      const totalDur = fp.dur[0] + Math.random() * (fp.dur[1] - fp.dur[0]);
+      const rate = fp.rate[0] + Math.random() * (fp.rate[1] - fp.rate[0]);
+      const period = 1 / rate;
+      const pulseDur = fp.pulseDur[0] + Math.random() * (fp.pulseDur[1] - fp.pulseDur[0]);
+      const fc = (fp.fc[0] + Math.random() * (fp.fc[1] - fp.fc[0])) * fScale;
+      let t = at;
+      const stropheEnd = at + totalDur;
+      while (t < stropheEnd) {
+        // Each wing-beat pulse: rough-noise primitive at low frequency
+        // with shorter duration. Slight rate variation for realism.
+        this.synthRough(t, pulseDur, fc, fp.bw, profile.amp);
+        // Period jitter ±15%
+        t += period * (0.85 + Math.random() * 0.30);
+      }
+      return stropheEnd;
     },
 
     // ───────── Continuous bed (unchanged) ─────────
@@ -2083,7 +3037,6 @@
   const densityRead  = document.getElementById('densityReadout');
   const volumeEl     = document.getElementById('volume');
   const volumeRead   = document.getElementById('volumeReadout');
-  const spectrum     = document.querySelector('.spectrum');
 
   const densityWords = ['silent', 'sparse', 'gentle', 'moderate', 'lively', 'busy'];
   const volumeWords  = ['silent', 'whisper', 'quiet', 'soft', 'audible', 'present'];
@@ -2100,14 +3053,37 @@
   }
 
   Sentinels.subscribe((state) => {
-    corner.dataset.playing = String(state.playing);
-    cornerLabel.textContent = state.playing ? 'sentinels on' : 'ambient mode';
-    playBtn.classList.toggle('playing', state.playing);
-    playLabel.textContent = state.playing ? 'Pause' : 'Listen';
-    if (spectrum) spectrum.classList.toggle('active', state.playing);
-    document.body.classList.toggle('engine-playing', state.playing);
-    // When stopped, restore dot to neutral and clear subtitle
-    if (!state.playing) {
+    // Three meaningful UI states, derived from intent (state.playing)
+    // and the AudioContext's actual state:
+    //   idle     — not playing
+    //   running  — playing and context running normally
+    //   paused   — user wants playback BUT context was suspended /
+    //              interrupted by the platform (tab hidden, screen
+    //              locked, system interruption). The UI surfaces this
+    //              clearly so the user understands why no audio is
+    //              coming and that one tap resumes it.
+    const ctxRunning = !!Sentinels.ctx && Sentinels.ctx.state === 'running';
+    const uiState = !state.playing ? 'idle'
+                  : ctxRunning      ? 'running'
+                  : 'paused';
+
+    corner.dataset.state = uiState;
+    corner.dataset.playing = String(state.playing);  // legacy CSS hook
+    if (uiState === 'idle')         cornerLabel.textContent = 'ambient mode';
+    else if (uiState === 'running') cornerLabel.textContent = 'sentinels on';
+    else                            cornerLabel.textContent = 'paused — tap to resume';
+
+    playBtn.classList.toggle('playing', uiState === 'running');
+    playBtn.dataset.state = uiState;
+    if (uiState === 'idle')         playLabel.textContent = 'Listen';
+    else if (uiState === 'running') playLabel.textContent = 'Pause';
+    else                            playLabel.textContent = 'Resume';
+
+    document.body.classList.toggle('engine-playing', uiState === 'running');
+
+    // When stopped or paused-by-OS, restore dot to neutral and clear
+    // subtitle (no live strophes are firing).
+    if (uiState !== 'running') {
       const d = corner.querySelector('.circuit-dot');
       d.style.background = '';
       d.style.boxShadow = '';
@@ -2190,20 +3166,90 @@
   densityRead.textContent = readoutFor(densityWords, densityEl.value / 100);
   volumeRead.textContent  = readoutFor(volumeWords, volumeEl.value / 100);
 
-  document.querySelectorAll('.voice-chip').forEach(chip => {
+  // ───────── Cohort + species chip rendering ─────────
+  // Species chips are rendered dynamically from the active cohort so
+  // switching cohort updates the chip set without touching the engine
+  // directly. Cohort picker reads the COHORTS registry.
+  const speciesChipsEl = document.getElementById('speciesChips');
+  const cohortNoteEl   = document.getElementById('cohortNote');
+
+  function renderSpeciesChips() {
+    if (!speciesChipsEl) return;
+    // Preserve the slider-name label, replace only the chips
+    speciesChipsEl.innerHTML = '<span class="slider-name">voices</span>';
+    const cohort = COHORTS[Sentinels.state.cohort] || COHORTS['uk-garden'];
+    cohort.species.forEach(name => {
+      const label = (cohort.labels[name] && cohort.labels[name].en) || name;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'voice-chip';
+      chip.dataset.species = name;
+      chip.dataset.on = String(Sentinels.state.species[name] !== false);
+      // Replace ASCII space with non-breaking space so multi-word species
+      // names ("song thrush", "great tit", "contact calls") don't wrap
+      // mid-pill.
+      chip.innerHTML = label.replace(/ /g, '&nbsp;');
+      chip.addEventListener('click', () => {
+        const isOn = chip.dataset.on === 'true';
+        const ok = Sentinels.setSpecies(name, !isOn);
+        if (ok) chip.dataset.on = String(!isOn);
+      });
+      speciesChipsEl.appendChild(chip);
+    });
+  }
+
+  function renderCohortNote() {
+    if (!cohortNoteEl) return;
+    const cohort = COHORTS[Sentinels.state.cohort];
+    if (!cohort) return;
+    // Build the note from the cohort description plus the shared
+    // architecture caveat, with a link to voices.md or the NZ-specific
+    // sister document.
+    const sourcesLink = Sentinels.state.cohort === 'nz-bush'
+      ? 'audio/voices-nz-native-bush.md'
+      : 'audio/voices.md';
+    cohortNoteEl.innerHTML =
+      `<em>${cohort.label}</em>. ${cohort.description} ` +
+      `Modelled with stateful scheduling — songs avoid overlap, and one ` +
+      `bird's song mildly elevates the chance of a neighbour responding. ` +
+      `Toggle voices above to hear them in isolation. ` +
+      `See <a href="https://github.com/christopherdebeer/sentinels/blob/main/${sourcesLink}">${sourcesLink}</a> for sources.`;
+  }
+
+  // Wire cohort picker
+  document.querySelectorAll('.cohort-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      const isOn = chip.dataset.on === 'true';
-      const speciesKey = chip.dataset.species || chip.dataset.voice;
-      const ok = Sentinels.setSpecies(speciesKey, !isOn);
-      if (ok) chip.dataset.on = String(!isOn);
+      const target = chip.dataset.cohort;
+      if (Sentinels.state.cohort === target) return;
+      Sentinels.setCohort(target);
+      // Update active state on cohort chips
+      document.querySelectorAll('.cohort-chip').forEach(c => {
+        c.dataset.active = String(c.dataset.cohort === target);
+      });
+      renderSpeciesChips();
+      renderCohortNote();
     });
   });
 
+  // Honour ?cohort=<name> URL param so links can deep-link a region.
+  // Falls back silently to default if param is absent or unknown.
+  const urlCohort = new URLSearchParams(location.search).get('cohort');
+  if (urlCohort && COHORTS[urlCohort]) {
+    Sentinels.setCohort(urlCohort);
+    document.querySelectorAll('.cohort-chip').forEach(c => {
+      c.dataset.active = String(c.dataset.cohort === urlCohort);
+    });
+  }
+
+  // Initial render
+  renderSpeciesChips();
+  renderCohortNote();
+
   // ───────── Debug logger ─────────
-  // Enabled by default. Disable with ?debug=0 in the URL. Logs each
+  // Disabled by default. Enable with ?debug=1 in the URL. Logs each
   // engine event to the browser console with structured records, plus
   // a small floating panel showing a rolling buffer with filter chips.
-  if (new URLSearchParams(location.search).get('debug') !== '0') {
+  if (new URLSearchParams(location.search).get('debug') === '1') {
     console.log('[sentinels] debug logging enabled');
     const startedAt = performance.now();
     const buf = [];
@@ -2276,16 +3322,100 @@
   }
 
 
-  // Suspend audio when tab is hidden — be a good citizen.
+  // Suspend audio when tab is hidden (be a good citizen and avoid
+  // running an expensive synthesis graph for a tab nobody is looking
+  // at). On return, attempt to resume — but the UI subscriber is the
+  // source of truth: if the resume() rejects (which can happen on iOS
+  // without a fresh user gesture), the UI flips to data-state="paused"
+  // automatically via the AudioContext.statechange listener, and the
+  // user's next tap on the toggle will succeed (because *that* IS a
+  // user gesture).
   document.addEventListener('visibilitychange', () => {
     if (!Sentinels.ctx) return;
     if (document.hidden && Sentinels.state.playing) {
-      Sentinels.ctx.suspend();
+      Sentinels.ctx.suspend().catch(() => {});
     } else if (!document.hidden && Sentinels.state.playing) {
-      Sentinels.ctx.resume();
+      Sentinels.ctx.resume().catch(() => {
+        // Resume failed — typically iOS post-lock-screen, or an
+        // 'interrupted' state from a system event. The statechange
+        // listener will fire when the state transitions, and the UI
+        // will show "paused — tap to resume".
+      });
     }
   });
+
+  // ───────── Figure carousel ─────────
+  // Generic controller — works for any `.figure-carousel` container that
+  // contains a `.figure-carousel-track` with `.figure-carousel-slide`
+  // children and nav buttons with `data-dir="-1"` / `"1"`. Ticks are
+  // generated from the slide count. Keyboard arrows work when the
+  // carousel has focus.
+  function initFigureCarousel(root) {
+    const track = root.querySelector('.figure-carousel-track');
+    const slides = Array.from(track.querySelectorAll('.figure-carousel-slide'));
+    const ticksContainer = root.querySelector('.figure-carousel-ticks');
+    const prevNext = Array.from(root.querySelectorAll('.figure-carousel-nav button'));
+    const counter = root.querySelector('.figure-carousel-nav .counter');
+    const n = slides.length;
+    if (n === 0) return;
+
+    // Build tick buttons (2-digit zero-padded numerals).
+    const ticks = slides.map((_, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = String(i + 1).padStart(2, '0');
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-label', `Figure ${i + 1} of ${n}`);
+      b.addEventListener('click', () => go(i));
+      ticksContainer.appendChild(b);
+      return b;
+    });
+
+    let current = 0;
+
+    function go(i) {
+      current = Math.max(0, Math.min(n - 1, i));
+      // Translate in pixels, not percent. Percent on `translate` resolves
+      // against the transformed element's own box, but a flex container
+      // whose children overflow doesn't widen its reported box to cover
+      // the children — so `translateX(-100%)` only moves the track by
+      // one viewport's worth, which is then *re-divided* by however we
+      // compute the percent. Pixels remove the ambiguity: the slide
+      // width is always correct relative to the viewport.
+      const slideWidth = slides[0].getBoundingClientRect().width;
+      track.style.transform = `translateX(-${current * slideWidth}px)`;
+      slides.forEach((s, idx) => s.setAttribute('aria-hidden', String(idx !== current)));
+
+
+      ticks.forEach((b, idx) => {
+        if (idx === current) b.setAttribute('aria-current', 'true');
+        else b.removeAttribute('aria-current');
+      });
+      prevNext.forEach(btn => {
+        const dir = Number(btn.dataset.dir);
+        btn.disabled = (dir < 0 && current === 0) || (dir > 0 && current === n - 1);
+      });
+      if (counter) counter.textContent = `${current + 1} / ${n}`;
+    }
+
+    prevNext.forEach(btn => {
+      btn.addEventListener('click', () => go(current + Number(btn.dataset.dir)));
+    });
+
+    // Keyboard: ← → when the carousel root has focus. We deliberately
+    // scope this to the root to avoid grabbing arrow-keys page-wide.
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(current - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(current + 1); }
+    });
+
+    // Initial state
+    go(0);
+  }
+
+  document.querySelectorAll('.figure-carousel').forEach(initFigureCarousel);
 </script>
+
 
 </body>
 </html>

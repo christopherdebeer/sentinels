@@ -21,20 +21,20 @@
   "new_engine": {
     "label": "NEW ENGINE",
     "duration_s": 60.0,
-    "peak_freq_hz": 3865.2099609375,
+    "peak_freq_hz": 3983.642578125,
     "band_minus10db_hz": [
-      3639.111328125,
-      7730.419921875
+      3235.36376953125,
+      7972.66845703125
     ],
-    "n_onsets": 109,
-    "onset_rate_per_min": 109.0,
-    "gap_mean_s": 0.4949290333417317,
-    "gap_median_s": 0.3250793650793664,
-    "gap_p90_s": 0.9102222222222207,
-    "gap_lognormal_mu": -0.9293311601187114,
-    "gap_lognormal_sigma": 0.5927336432798617,
-    "density_cv": 0.4256920278209241,
-    "centroid_mean_hz": 3101.581030687657,
-    "centroid_std_hz": 2413.7531141679488
+    "n_onsets": 123,
+    "onset_rate_per_min": 122.99999999999999,
+    "gap_mean_s": 0.4735348128322367,
+    "gap_median_s": 0.32507936507936463,
+    "gap_p90_s": 0.6919546485260774,
+    "gap_lognormal_mu": -1.0057169692206673,
+    "gap_lognormal_sigma": 0.5752166338612237,
+    "density_cv": 0.3094775009865737,
+    "centroid_mean_hz": 3311.5409973558485,
+    "centroid_std_hz": 2452.320827346002
   }
 }
